@@ -176,8 +176,10 @@ class GenericProvider:
         return True
 
     def searchRSS(self):
+
         self._checkAuth()
         self.cache.updateCache()
+
         return self.cache.findNeededEpisodes()
 
     def getQuality(self, item):
@@ -223,12 +225,12 @@ class GenericProvider:
 
         self._checkAuth()
 
-        logger.log(u'Searching "{0}" for "{1}"'
-                   .format(self.name, episode.prettyName()))
-
         # XEM episode scene numbering
         sceneEpisode = copy.copy(episode)
         sceneEpisode.convertToSceneNumbering()
+
+        logger.log(u'Searching "%s" for "%s" as "%s"'
+                   % (self.name, episode.prettyName() , sceneEpisode.prettyName()))
 
         self.cache.updateCache()
         results = self.cache.searchCache(episode, manualSearch)
@@ -306,8 +308,9 @@ class GenericProvider:
                 for curString in self._get_season_search_strings(show, sceneSeason, sceneEpisodes):
                     itemList += self._doSearch(curString)
         else:
-            for curString in self._get_season_search_strings(show, None, wantedEp):
-                itemList += self._doSearch(curString)
+            for sceneSeason,sceneEpisodes in sceneSeasons.iteritems():
+                for curString in self._get_season_search_strings(show, None, sceneEpisodes):
+                    itemList += self._doSearch(curString)
 
         for item in itemList:
 
