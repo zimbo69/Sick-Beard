@@ -85,7 +85,7 @@ class OmgwtfnzbsProvider(generic.NZBProvider):
 
             return True
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
         return [x for x in show_name_helpers.makeSceneSeasonSearchString(show, season)]
 
     def _get_episode_search_strings(self, ep_obj):

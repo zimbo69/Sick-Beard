@@ -190,7 +190,7 @@ class BTNProvider(generic.TorrentProvider):
 
         return (title, url)
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
         if not show:
             return [{}]
 
@@ -211,7 +211,7 @@ class BTNProvider(generic.TorrentProvider):
                 # Search by name if we don't have tvdb or tvrage id
                 current_params['series'] = sanitizeSceneName(name)
 
-            if season != None:
+            if searchSeason:
                 whole_season_params = current_params.copy()
                 partial_season_params = current_params.copy()
                 # Search for entire seasons: no need to do special things for air by date shows

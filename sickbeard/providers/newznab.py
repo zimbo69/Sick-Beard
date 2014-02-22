@@ -80,7 +80,7 @@ class NewznabProvider(generic.NZBProvider):
     def isEnabled(self):
         return self.enabled
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
 
         if not show:
             return [{}]
@@ -100,7 +100,7 @@ class NewznabProvider(generic.NZBProvider):
             else:
                 cur_params['q'] = helpers.sanitizeSceneName(cur_exception)
 
-            if season != None:
+            if searchSeason:
                 # air-by-date means &season=2010&q=2010.03, no other way to do it atm
                 if show.air_by_date:
                     cur_params['season'] = season.split('-')[0]

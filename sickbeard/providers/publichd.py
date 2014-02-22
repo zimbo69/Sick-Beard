@@ -68,7 +68,7 @@ class PublicHDProvider(generic.TorrentProvider):
         quality = Quality.sceneQuality(item[0])
         return quality
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
         search_string = {'Episode': []}
 
         if not show:
@@ -76,7 +76,7 @@ class PublicHDProvider(generic.TorrentProvider):
 
         self.show = show
 
-        if season != None:
+        if searchSeason:
             search_string = {'Season': [], 'Episode': []}
             for show_name in set(allPossibleShowNames(show)):
                 ep_string = show_name +' S%02d' % int(season)  #1) ShowName SXX -SXXE
@@ -85,9 +85,8 @@ class PublicHDProvider(generic.TorrentProvider):
                 ep_string = show_name+' Season '  + str(season) #2) ShowName Season X
                 search_string['Season'].append(ep_string)
 
-        if wantedEp != None:
-            for ep_obj in wantedEp:
-                search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
+        for ep_obj in wantedEp:
+            search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
 
         if not search_string['Episode']:
             return []

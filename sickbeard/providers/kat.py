@@ -156,7 +156,7 @@ class KATProvider(generic.TorrentProvider):
             logger.log(u"Failed parsing " + self.name + " Traceback: "  + traceback.format_exc(), logger.ERROR)
 
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
         search_string = {'Episode': []}
 
         if not show:
@@ -164,7 +164,7 @@ class KATProvider(generic.TorrentProvider):
 
         self.show = show
 
-        if season != None:
+        if searchSeason:
             search_string = {'Season': [], 'Episode': []}
             for show_name in set(allPossibleShowNames(show)):
                 ep_string = show_name +' S%02d' % int(season) + ' -S%02d' % int(season) + 'E' + ' category:tv' #1) ShowName SXX -SXXE
@@ -173,9 +173,8 @@ class KATProvider(generic.TorrentProvider):
                 ep_string = show_name+' Season '+str(season)+' -Ep*' + ' category:tv' #2) ShowName Season X
                 search_string['Season'].append(ep_string)
 
-        if wantedEp != None:
-            for ep_obj in wantedEp:
-                search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
+        for ep_obj in wantedEp:
+            search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
 
         if not search_string['Episode']:
             return []

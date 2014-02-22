@@ -69,7 +69,7 @@ class EZRSSProvider(generic.TorrentProvider):
 
         return results
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
 
         params = {}
 
@@ -78,7 +78,7 @@ class EZRSSProvider(generic.TorrentProvider):
 
         params['show_name'] = helpers.sanitizeSceneName(show.name, ezrss=True).replace('.', ' ').encode('utf-8')
 
-        if season != None:
+        if searchSeason:
             params['season'] = season
 
         return [params]

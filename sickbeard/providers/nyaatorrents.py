@@ -68,7 +68,7 @@ class NyaaProvider(generic.TorrentProvider):
         results = generic.TorrentProvider.findSeasonResults(self, show, season)
         
         return results
-    def _get_season_search_strings(self, show, season=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
         names = []
         names.extend(show_name_helpers.makeSceneShowSearchStrings(show))
         return names

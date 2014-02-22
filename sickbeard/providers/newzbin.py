@@ -248,7 +248,7 @@ class NewzbinProvider(generic.NZBProvider):
 
         return data
 
-    def _get_season_search_strings(self, show, season=None, wantedEp=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
 
         nameList = set(show_name_helpers.allPossibleShowNames(show))
 

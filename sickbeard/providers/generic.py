@@ -197,7 +197,7 @@ class GenericProvider:
     def _doSearch(self):
         return []
 
-    def _get_season_search_strings(self, show, season, episode=None):
+    def _get_season_search_strings(self, show, season, wantedEp, searchSeason=False):
         return []
 
     def _get_episode_search_strings(self, ep_obj):
@@ -292,6 +292,7 @@ class GenericProvider:
         itemList = []
         results = {}
         sceneSeasons = {}
+        searchSeason = False
 
         # If Every episode in this Season is a wanted Episode then search for this Season first
         seasonEp = show.getAllEpisodes(season)
@@ -304,13 +305,11 @@ class GenericProvider:
             sceneSeasons.setdefault(se.season,[]).append(se)
 
         if wantedEp == seasonEp and not show.air_by_date:
-            for sceneSeason,sceneEpisodes in sceneSeasons.iteritems():
-                for curString in self._get_season_search_strings(show, sceneSeason, sceneEpisodes):
-                    itemList += self._doSearch(curString)
-        else:
-            for sceneSeason,sceneEpisodes in sceneSeasons.iteritems():
-                for curString in self._get_season_search_strings(show, None, sceneEpisodes):
-                    itemList += self._doSearch(curString)
+            searchSeason = True
+
+        for sceneSeason,sceneEpisodes in sceneSeasons.iteritems():
+            for curString in self._get_season_search_strings(show, sceneSeason, sceneEpisodes, searchSeason):
+                itemList += self._doSearch(curString)
 
         for item in itemList:
 
