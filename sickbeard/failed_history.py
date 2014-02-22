@@ -218,6 +218,9 @@ def findRelease(showtvdbid, season, episode):
     Find release in history by show ID, season, and episode.
     Return None for release if multiple found or no release found.
     """
+    release = None
+    provider = None
+
     myDB = db.DBConnection("failed.db")
 
     # Clear old snatches for this release if any exist
@@ -227,12 +230,17 @@ def findRelease(showtvdbid, season, episode):
     sql_results = myDB.select("SELECT release, provider, date FROM history WHERE showtvdbid=? AND season=? AND episode=?",[showtvdbid, season, episode])
 
     if sql_results:
+        release = str(sql_results[0]["release"])
+        provider = str(sql_results[0]["provider"])
+        date = sql_results[0]["date"]
+
         # Clear any incomplete snatch records for this release if any exist
-        myDB.action("DELETE FROM history WHERE release=? AND date!=?",[sql_results[0]["release"], sql_results[0]["date"]])
+        myDB.action("DELETE FROM history WHERE release=? AND date!=?",[release, date])
 
         # Return release name found
         logger.log(u"Release found: (%s)" % (sql_results[0]["release"]), logger.DEBUG)
-        return (str(sql_results[0]["release"]), str(sql_results[0]["provider"]))
+        return (release, provider)
 
-    # Return None, Release was not found
+    # Release was not found
     logger.log(u"Release not found: (%s, %s, %s)" % (showtvdbid, season, episode), logger.DEBUG)
+    return (release, provider)
