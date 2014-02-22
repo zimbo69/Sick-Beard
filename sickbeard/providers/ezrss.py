@@ -69,7 +69,7 @@ class EZRSSProvider(generic.TorrentProvider):
 
         return results
 
-    def _get_season_search_strings(self, show, season=None):
+    def _get_season_search_strings(self, show, season=None, wantedEp=None):
 
         params = {}
 

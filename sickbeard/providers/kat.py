@@ -21,18 +21,23 @@ import os
 import traceback
 import urllib, urllib2
 import re
+import datetime
+import urlparse
 
 import sickbeard
 import generic
-from sickbeard.common import Quality, Overview 
+from sickbeard.common import Quality, Overview
 from sickbeard.name_parser.parser import NameParser, InvalidNameException
 from sickbeard import logger
 from sickbeard import tvcache
 from sickbeard import helpers
+from sickbeard import db
+from sickbeard import classes
 from sickbeard.show_name_helpers import allPossibleShowNames, sanitizeSceneName
 from sickbeard.exceptions import ex
 from sickbeard import encodingKludge as ek
 from sickbeard import clients
+from sickbeard import tv
 
 from lib import requests
 from bs4 import BeautifulSoup
@@ -43,25 +48,25 @@ class KATProvider(generic.TorrentProvider):
     def __init__(self):
 
         generic.TorrentProvider.__init__(self, "KickAssTorrents")
-        
+
         self.supportsBacklog = True
 
         self.cache = KATCache(self)
-        
-        self.url = 'http://katproxy.com/'
 
-        self.searchurl = self.url+'usearch/%s/?field=seeders&sorder=desc'  #order by seed       
+        self.url = 'http://kickass.to/'
+
+        self.searchurl = self.url+'usearch/%s/?field=seeders&sorder=desc'  #order by seed
 
     def isEnabled(self):
         return sickbeard.KAT
-        
+
     def imageName(self):
         return 'kat.png'
-    
+
     def getQuality(self, item):
-        
+
         quality = Quality.sceneQuality(item[0])
-        return quality    
+        return quality
 
     def _reverseQuality(self, quality):
 
@@ -70,128 +75,122 @@ class KATProvider(generic.TorrentProvider):
         if quality == Quality.SDTV:
             quality_string = 'HDTV x264'
         if quality == Quality.SDDVD:
-            quality_string = 'DVDRIP'    
-        elif quality == Quality.HDTV:    
+            quality_string = 'DVDRIP'
+        elif quality == Quality.HDTV:
             quality_string = '720p HDTV x264'
         elif quality == Quality.FULLHDTV:
-            quality_string = '1080p HDTV x264'        
+            quality_string = '1080p HDTV x264'
         elif quality == Quality.RAWHDTV:
             quality_string = '1080i HDTV mpeg2'
         elif quality == Quality.HDWEBDL:
             quality_string = '720p WEB-DL h264'
         elif quality == Quality.FULLHDWEBDL:
-            quality_string = '1080p WEB-DL h264'            
+            quality_string = '1080p WEB-DL h264'
         elif quality == Quality.HDBLURAY:
             quality_string = '720p Bluray x264'
         elif quality == Quality.FULLHDBLURAY:
-            quality_string = '1080p Bluray x264'  
-        
+            quality_string = '1080p Bluray x264'
+
         return quality_string
 
     def _find_season_quality(self,title, torrent_link, ep_number):
         """ Return the modified title of a Season Torrent with the quality found inspecting torrent file list """
-        
+
         mediaExtensions = ['avi', 'mkv', 'wmv', 'divx',
                            'vob', 'dvr-ms', 'wtv', 'ts'
-                           'ogv', 'rar', 'zip', 'mp4'] 
-        
-        quality = Quality.UNKNOWN        
-        
+                           'ogv', 'rar', 'zip', 'mp4']
+
+        quality = Quality.UNKNOWN
+
         fileName = None
 
         data = self.getURL(torrent_link)
-        
+
         if not data:
             return None
-        
-        try: 
+
+        try:
             soup = BeautifulSoup(data, features=["html5lib", "permissive"])
             file_table = soup.find('table', attrs = {'class': 'torrentFileList'})
 
             if not file_table:
-                return None 
-            
+                return None
+
             files = [x.text for x in file_table.find_all('td', attrs = {'class' : 'torFileName'} )]
             videoFiles = filter(lambda x: x.rpartition(".")[2].lower() in mediaExtensions, files)
-            
+
             #Filtering SingleEpisode/MultiSeason Torrent
-            if len(videoFiles) < ep_number or len(videoFiles) > float(ep_number * 1.1 ): 
+            if len(videoFiles) < ep_number or len(videoFiles) > float(ep_number * 1.1 ):
                 logger.log(u"Result " + title + " have " + str(ep_number) + " episode and episodes retrived in torrent are " + str(len(videoFiles)), logger.DEBUG)
                 logger.log(u"Result " + title + " Seem to be a Single Episode or MultiSeason torrent, skipping result...", logger.DEBUG)
                 return None
 
             if Quality.sceneQuality(title) != Quality.UNKNOWN:
                 return title
-                
+
             for fileName in videoFiles:
                 quality = Quality.sceneQuality(os.path.basename(fileName))
                 if quality != Quality.UNKNOWN: break
-    
+
             if fileName!=None and quality == Quality.UNKNOWN:
-                quality = Quality.assumeQuality(os.path.basename(fileName))            
-    
+                quality = Quality.assumeQuality(os.path.basename(fileName))
+
             if quality == Quality.UNKNOWN:
                 logger.log(u"Unable to obtain a Season Quality for " + title, logger.DEBUG)
                 return None
-    
+
             try:
                 myParser = NameParser()
-                parse_result = myParser.parse(fileName)
+                parse_result = myParser.parse(fileName, True)
             except InvalidNameException:
                 return None
-            
+
             logger.log(u"Season quality for "+title+" is "+Quality.qualityStrings[quality], logger.DEBUG)
-            
-            if parse_result.series_name and parse_result.season_number: 
+
+            if parse_result.series_name and parse_result.season_number:
                 title = parse_result.series_name+' S%02d' % int(parse_result.season_number)+' '+self._reverseQuality(quality)
-            
+
             return title
-            
+
         except Exception, e:
             logger.log(u"Failed parsing " + self.name + " Traceback: "  + traceback.format_exc(), logger.ERROR)
-                
 
-    def _get_season_search_strings(self, show, season=None):
 
+    def _get_season_search_strings(self, show, season=None, wantedEp=None):
         search_string = {'Episode': []}
-    
+
         if not show:
             return []
 
         self.show = show
-        seasonEp = show.getAllEpisodes(season)
 
-        wantedEp = [x for x in seasonEp if show.getOverview(x.status) in (Overview.WANTED, Overview.QUAL)]          
-
-        #If Every episode in Season is a wanted Episode then search for Season first
-        if wantedEp == seasonEp and not show.air_by_date:
+        if season != None:
             search_string = {'Season': [], 'Episode': []}
             for show_name in set(allPossibleShowNames(show)):
-                ep_string = show_name +' S%02d' % int(season) + ' -S%02d' % int(season) + 'E' + ' category:tv' #1) ShowName SXX -SXXE  
-                search_string['Season'].append(ep_string)
-                      
-                ep_string = show_name+' Season '+str(season)+' -Ep*' + ' category:tv' #2) ShowName Season X  
+                ep_string = show_name +' S%02d' % int(season) + ' -S%02d' % int(season) + 'E' + ' category:tv' #1) ShowName SXX -SXXE
                 search_string['Season'].append(ep_string)
 
-        #Building the search string with the episodes we need         
-        for ep_obj in wantedEp:
-            search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
-        
-        #If no Episode is needed then return an empty list
+                ep_string = show_name+' Season '+str(season)+' -Ep*' + ' category:tv' #2) ShowName Season X
+                search_string['Season'].append(ep_string)
+
+        if wantedEp != None:
+            for ep_obj in wantedEp:
+                search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
+
         if not search_string['Episode']:
             return []
-        
+
         return [search_string]
 
-    def _get_episode_search_strings(self, ep_obj):
-       
+    def _get_episode_search_strings(self, ep_obj, add_string=''):
+
         search_string = {'Episode': []}
-       
+
         if not ep_obj:
             return []
-        
+
         self.show = ep_obj.show
-                
+
         if ep_obj.show.air_by_date:
             for show_name in set(allPossibleShowNames(ep_obj.show)):
                 ep_string = sanitizeSceneName(show_name) +' '+ str(ep_obj.airdate)
@@ -201,13 +200,13 @@ class KATProvider(generic.TorrentProvider):
                 ep_string = sanitizeSceneName(show_name) +' '+ \
                 sickbeard.config.naming_ep_type[2] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} +'|'+\
                 sickbeard.config.naming_ep_type[0] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} +'|'+\
-                sickbeard.config.naming_ep_type[3] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} + ' category:tv' \
-
-                search_string['Episode'].append(ep_string)
+                sickbeard.config.naming_ep_type[3] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} + ' %s category:tv' %add_string \
+                
+                search_string['Episode'].append(re.sub('\s+', ' ', ep_string))
     
         return [search_string]
 
-    def _doSearch(self, search_params):
+    def _doSearch(self, search_params, show=None):
 
         results = []
         items = {'Season': [], 'Episode': [], 'RSS': []}
@@ -292,6 +291,11 @@ class KATProvider(generic.TorrentProvider):
     def getURL(self, url, headers=None):
 
         try:
+            # Remove double-slashes from url
+            parsed = list(urlparse.urlparse(url))
+            parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
+            url = urlparse.urlunparse(parsed)
+
             r = requests.get(url)
         except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
             logger.log(u"Error loading "+self.name+" URL: " + str(sys.exc_info()) + " - " + ex(e), logger.ERROR)
@@ -336,6 +340,30 @@ class KATProvider(generic.TorrentProvider):
             return False
         logger.log(u"Saved magnet link to " + magnetFileName + " ", logger.MESSAGE)
         return True
+
+    def findPropers(self, search_date=datetime.datetime.today()):
+
+        results = []
+
+        sqlResults = db.DBConnection().select('SELECT s.show_name, e.showid, e.season, e.episode, e.status, e.airdate FROM tv_episodes AS e' +
+                                              ' INNER JOIN tv_shows AS s ON (e.showid = s.tvdb_id)' +
+                                              ' WHERE e.airdate >= ' + str(search_date.toordinal()) +
+                                              ' AND (e.status IN (' + ','.join([str(x) for x in Quality.DOWNLOADED]) + ')' +
+                                              ' OR (e.status IN (' + ','.join([str(x) for x in Quality.SNATCHED]) + ')))'
+                                              )
+        if not sqlResults:
+            return []
+        
+        for sqlShow in sqlResults:
+            curShow = helpers.findCertainShow(sickbeard.showList, int(sqlShow["showid"]))
+            curEp = curShow.getEpisode(int(sqlShow["season"]), int(sqlShow["episode"]))
+            searchString = self._get_episode_search_strings(curEp, add_string='PROPER|REPACK')
+
+            for item in self._doSearch(searchString[0]):
+                title, url = self._get_title_and_url(item)
+                results.append(classes.Proper(title, url, datetime.datetime.today()))
+
+        return results
 
 
 class KATCache(tvcache.TVCache):

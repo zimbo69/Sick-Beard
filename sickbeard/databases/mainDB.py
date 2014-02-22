@@ -27,7 +27,7 @@ from sickbeard import encodingKludge as ek
 from sickbeard.name_parser.parser import NameParser, InvalidNameException
 
 MIN_DB_VERSION = 9 # oldest db version we support migrating from
-MAX_DB_VERSION = 18
+MAX_DB_VERSION = 20
 
 class MainSanityCheck(db.DBSanityCheck):
 
@@ -89,8 +89,7 @@ class MainSanityCheck(db.DBSanityCheck):
 def backupDatabase(version):
     logger.log(u"Backing up database before upgrade")
     if not helpers.backupVersionedFile(db.dbFilename(), version):
-        logger.log(u"Database backup failed, abort upgrading database")
-        sys.exit("Database backup failed, abort upgrading database")
+        logger.log_error_and_exit(u"Database backup failed, abort upgrading database")
     else:
         logger.log(u"Proceeding with upgrade")
 
@@ -104,20 +103,37 @@ class InitialSchema (db.SchemaUpgrade):
         return self.hasTable("db_version")
 
     def execute(self):
-        queries = [
-            "CREATE TABLE db_version (db_version INTEGER);",
-            "CREATE TABLE history (action NUMERIC, date NUMERIC, showid NUMERIC, season NUMERIC, episode NUMERIC, quality NUMERIC, resource TEXT, provider TEXT);",
-            "CREATE TABLE imdb_info (tvdb_id INTEGER PRIMARY KEY, imdb_id TEXT, title TEXT, year NUMERIC, akas TEXT, runtimes NUMERIC, genres TEXT, countries TEXT, country_codes TEXT, certificates TEXT, rating TEXT, votes INTEGER, last_update NUMERIC)",
-            "CREATE TABLE info (last_backlog NUMERIC, last_tvdb NUMERIC);",
-            "CREATE TABLE tv_episodes (episode_id INTEGER PRIMARY KEY, showid NUMERIC, tvdbid NUMERIC, name TEXT, season NUMERIC, episode NUMERIC, description TEXT, airdate NUMERIC, hasnfo NUMERIC, hastbn NUMERIC, status NUMERIC, location TEXT, file_size NUMERIC, release_name TEXT, subtitles TEXT, subtitles_searchcount NUMERIC, subtitles_lastsearch TIMESTAMP, is_proper NUMERIC)",
-            "CREATE TABLE tv_shows (show_id INTEGER PRIMARY KEY, location TEXT, show_name TEXT, tvdb_id NUMERIC, network TEXT, genre TEXT, runtime NUMERIC, quality NUMERIC, airs TEXT, status TEXT, flatten_folders NUMERIC, paused NUMERIC, startyear NUMERIC, tvr_id NUMERIC, tvr_name TEXT, air_by_date NUMERIC, lang TEXT, subtitles NUMERIC, notify_list TEXT, imdb_id TEXT, last_update_tvdb NUMERIC)",
-            "CREATE INDEX idx_tv_episodes_showid_airdate ON tv_episodes(showid,airdate);",
-            "CREATE INDEX idx_showid ON tv_episodes (showid);",
-            "CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);",
-            "INSERT INTO db_version (db_version) VALUES (18);"
-            ]
-        for query in queries:
-            self.connection.action(query)
+        if not self.hasTable("tv_shows") and not self.hasTable("db_version"):
+            queries = [
+                "CREATE TABLE db_version (db_version INTEGER);",
+                "CREATE TABLE history (action NUMERIC, date NUMERIC, showid NUMERIC, season NUMERIC, episode NUMERIC, quality NUMERIC, resource TEXT, provider TEXT);",
+                "CREATE TABLE imdb_info (tvdb_id INTEGER PRIMARY KEY, imdb_id TEXT, title TEXT, year NUMERIC, akas TEXT, runtimes NUMERIC, genres TEXT, countries TEXT, country_codes TEXT, certificates TEXT, rating TEXT, votes INTEGER, last_update NUMERIC)",
+                "CREATE TABLE info (last_backlog NUMERIC, last_tvdb NUMERIC, last_proper_search NUMERIC);",
+                "CREATE TABLE tv_episodes (episode_id INTEGER PRIMARY KEY, showid NUMERIC, tvdbid NUMERIC, name TEXT, season NUMERIC, episode NUMERIC, description TEXT, airdate NUMERIC, hasnfo NUMERIC, hastbn NUMERIC, status NUMERIC, location TEXT, file_size NUMERIC, release_name TEXT, subtitles TEXT, subtitles_searchcount NUMERIC, subtitles_lastsearch TIMESTAMP, is_proper NUMERIC)",
+                "CREATE TABLE tv_shows (show_id INTEGER PRIMARY KEY, location TEXT, show_name TEXT, tvdb_id NUMERIC, network TEXT, genre TEXT, runtime NUMERIC, quality NUMERIC, airs TEXT, status TEXT, flatten_folders NUMERIC, paused NUMERIC, startyear NUMERIC, tvr_id NUMERIC, tvr_name TEXT, air_by_date NUMERIC, lang TEXT, subtitles NUMERIC, notify_list TEXT, imdb_id TEXT, last_update_tvdb NUMERIC)",
+                "CREATE INDEX idx_tv_episodes_showid_airdate ON tv_episodes(showid,airdate);",
+                "CREATE INDEX idx_showid ON tv_episodes (showid);",
+                "CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);",
+                "INSERT INTO db_version (db_version) VALUES (18);"
+                ]
+            for query in queries:
+                self.connection.action(query)
+
+        else:
+            cur_db_version = self.checkDBVersion()
+
+            if cur_db_version < MIN_DB_VERSION:
+                logger.log_error_and_exit(u"Your database version (" + str(cur_db_version) + ") is too old to migrate from what this version of Sick Beard supports (" + \
+                                          str(MIN_DB_VERSION) + ").\n" + \
+                                          "Upgrade using a previous version (tag) build 496 to build 501 of Sick Beard first or remove database file to begin fresh."
+                                          )
+
+            if cur_db_version > MAX_DB_VERSION:
+                logger.log_error_and_exit(u"Your database version (" + str(cur_db_version) + ") has been incremented past what this version of Sick Beard supports (" + \
+                                          str(MAX_DB_VERSION) + ").\n" + \
+                                          "If you have used other forks of Sick Beard, your database may be unusable due to their modifications."
+                                          )
+
 
 class AddSizeAndSceneNameFields(InitialSchema):
 
@@ -416,8 +432,10 @@ class AddShowidTvdbidIndex(AddEmailSubscriptionTable):
         MainSanityCheck(self.connection).fix_duplicate_shows()
 
         logger.log(u"Adding index on tvdb_id (tv_shows) and showid (tv_episodes) to speed up searches/queries.")
-        self.connection.action("CREATE INDEX idx_showid ON tv_episodes (showid);")
-        self.connection.action("CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);")
+        if not self.hasTable("idx_showid"):
+            self.connection.action("CREATE INDEX idx_showid ON tv_episodes (showid);")
+        if not self.hasTable("idx_tvdb_id"):
+            self.connection.action("CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);")
 
         self.incDBVersion()
 
@@ -435,3 +453,28 @@ class AddLastUpdateTVDB(AddShowidTvdbidIndex):
             self.addColumn("tv_shows", "last_update_tvdb", default=1)
 
         self.incDBVersion()
+        
+class AddLastProperSearch(AddLastUpdateTVDB):
+    def test(self):
+        return self.checkDBVersion() >= 19
+    
+    def execute(self):
+        backupDatabase(19)
+
+        logger.log(u"Adding column last_proper_search to info")
+        if not self.hasColumn("info", "last_proper_search"):
+            self.addColumn("info", "last_proper_search", default=1)
+
+        self.incDBVersion()
+
+class AddDvdOrderOption(AddLastProperSearch):
+    def test(self):
+        return self.checkDBVersion() >= 20
+
+    def execute(self):
+        backupDatabase(20)
+        
+    def execute(self):
+        self.connection.action("ALTER TABLE tv_shows ADD dvdorder NUMERIC")
+        self.incDBVersion()
+        

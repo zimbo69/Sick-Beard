@@ -24,7 +24,7 @@ import time
 import sickbeard
 from sickbeard import db, logger, common, exceptions, helpers
 from sickbeard import generic_queue
-from sickbeard import search, failed_history
+from sickbeard import search, failed_history, history
 from sickbeard import ui
 
 BACKLOG_SEARCH = 10
@@ -254,8 +254,13 @@ class FailedQueueItem(generic_queue.QueueItem):
 
         if self.ep_obj:
 
-            failed_history.revertEpisodes(self.show, self.ep_obj.season, [self.ep_obj.episode])
-            failed_history.logFailed(self.ep_obj.release_name)
+            release, provider = failed_history.findRelease(self.show.tvdbid, self.ep_obj.season, self.ep_obj.episode)
+
+            if release is not None:
+                logger.log(u"Marking snatched release " + release + " from provider " + provider + " FAILED")
+                failed_history.revertEpisodes(self.show, self.ep_obj.season, [self.ep_obj.episode])
+                failed_history.logFailed(release)
+                history.logFailed(self.show.tvdbid, self.ep_obj.season, self.ep_obj.episode, common.Quality.NONE, release, provider)
 
             foundEpisode = search.findEpisode(self.ep_obj, manualSearch=True)
             result = False
@@ -281,7 +286,7 @@ class FailedQueueItem(generic_queue.QueueItem):
             myDB = db.DBConnection()
     
             if not self.show.air_by_date:
-                sqlResults = myDB.select("SELECT episode, release_name FROM tv_episodes WHERE showid = ? AND season = ? AND status IN (" + ",".join([str(x) for x in common.Quality.FAILED]) + ")", [self.show.tvdbid, self.segment])
+                sqlResults = myDB.select("SELECT episode FROM tv_episodes WHERE showid = ? AND season = ? AND status IN (" + ",".join([str(x) for x in common.Quality.FAILED]) + ")", [self.show.tvdbid, self.segment])
             else:
                 segment_year, segment_month = map(int, self.segment.split('-'))
                 min_date = datetime.date(segment_year, segment_month, 1)
@@ -292,12 +297,17 @@ class FailedQueueItem(generic_queue.QueueItem):
                 else:
                     max_date = datetime.date(segment_year, segment_month + 1, 1) - datetime.timedelta(days=1)
     
-                sqlResults = myDB.select("SELECT episode, release_name FROM tv_episodes WHERE showid = ? AND airdate >= ? AND airdate <= ? AND status IN (" + ",".join([str(x) for x in common.Quality.FAILED]) + ")",
+                sqlResults = myDB.select("SELECT episode FROM tv_episodes WHERE showid = ? AND airdate >= ? AND airdate <= ? AND status IN (" + ",".join([str(x) for x in common.Quality.FAILED]) + ")",
                                             [self.show.tvdbid, min_date.toordinal(), max_date.toordinal()])
             
             for result in sqlResults:
-                failed_history.revertEpisodes(self.show, self.segment, [result["episode"]])
-                failed_history.logFailed(result["release_name"])
+                release, provider = failed_history.findRelease(self.show.tvdbid, self.segment, result["episode"])
+
+                if release is not None:
+                    logger.log(u"Marking snatched release " + release + " from provider " + provider + " FAILED")
+                    failed_history.revertEpisodes(self.show, self.segment, [result["episode"]])
+                    failed_history.logFailed(release)
+                    history.logFailed(self.show.tvdbid, self.segment, result["episode"], common.Quality.NONE, release, provider)
 
                 results = search.findSeason(self.show, self.segment)
 

@@ -20,7 +20,7 @@ import os
 import re
 import sys
 import time
-import urllib
+import urllib,urlparse
 
 from xml.dom.minidom import parseString
 from datetime import datetime, timedelta
@@ -233,6 +233,11 @@ class NewzbinProvider(generic.NZBProvider):
 
         myOpener = classes.AuthURLOpener(sickbeard.NEWZBIN_USERNAME, sickbeard.NEWZBIN_PASSWORD)
         try:
+            # Remove double-slashes from url
+            parsed = list(urlparse.urlparse(url))
+            parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
+            url = urlparse.urlunparse(parsed)
+
             f = myOpener.openit(url)
         except (urllib.ContentTooShortError, IOError), e:
             logger.log("Error loading search results: " + str(sys.exc_info()) + " - " + ex(e), logger.ERROR)
@@ -243,7 +248,7 @@ class NewzbinProvider(generic.NZBProvider):
 
         return data
 
-    def _get_season_search_strings(self, show, season):
+    def _get_season_search_strings(self, show, season=None, wantedEp=None):
 
         nameList = set(show_name_helpers.allPossibleShowNames(show))
 

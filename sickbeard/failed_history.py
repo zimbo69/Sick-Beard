@@ -85,9 +85,11 @@ def logFailed(release):
 
 
 def logSuccess(release):
-    # Placeholder for now. We want to maintain history in case a download
-    # succeeds but is bad.
-    pass
+    myDB = db.DBConnection("failed.db")
+
+    release = prepareFailedName(release)
+
+    myDB.action("DELETE FROM history WHERE release=?", [release])
 
 
 def hasFailed(release, size, provider="%"):
@@ -151,6 +153,28 @@ def revertEpisodes(show_obj, season, episodes):
 
     return log_str
 
+def markFailed(show_obj, season, episodes):
+    log_str = u""
+
+    if len(episodes) > 0:
+        for cur_episode in episodes:
+            try:
+                ep_obj = show_obj.getEpisode(season, cur_episode)
+            except exceptions.EpisodeNotFoundException, e:
+                log_str += _log_helper(u"Unable to get episode, please set its status manually: " + exceptions.ex(e), logger.WARNING)
+                continue
+
+            with ep_obj.lock:
+                ep_obj.status = common.FAILED
+                ep_obj.saveToDB()
+    else:
+        # Whole season
+        for ep_obj in show_obj.getAllEpisodes(season):
+            with ep_obj.lock:
+                ep_obj.status = common.FAILED
+                ep_obj.saveToDB()
+
+    return log_str
 
 def logSnatch(searchResult):
     myDB = db.DBConnection("failed.db")
@@ -192,34 +216,23 @@ def trimHistory():
 def findRelease(showtvdbid, season, episode):
     """
     Find release in history by show ID, season, and episode.
-    Raise exception if multiple found.
+    Return None for release if multiple found or no release found.
     """
-
     myDB = db.DBConnection("failed.db")
-    sql_results = myDB.select(
-        "SELECT release FROM history WHERE showtvdbid=? AND season=? AND episode=?",
-        [showtvdbid, season, episode])
 
-    logger.log(u"findRelease results: " + str([x["release"] for x in sql_results]), logger.DEBUG)
+    # Clear old snatches for this release if any exist
+    myDB.action("DELETE FROM history WHERE showtvdbid=" + str(showtvdbid) + " AND season=" + str(season) + " AND episode=" + str(episode) + " AND date < (SELECT max(date) FROM history WHERE showtvdbid=" + str(showtvdbid) + " AND season=" + str(season) + " AND episode=" + str(episode) + ")")
 
-    if len(sql_results) == 0:
-        logger.log(u"Release not found (%s, %s, %s)" % (showtvdbid, season, episode),
-                   logger.WARNING)
-        raise exceptions.FailedHistoryNotFoundException()
-    elif len(sql_results) > 1:
-        # Multi-snatched (i.e., user meddling)
-        # Clear it and start fresh
-        logger.log(u"Multi-snatch detected. (%s, %s, %s)" % (showtvdbid, season, episode),
-                   logger.WARNING)
-        myDB.select("DELETE FROM history WHERE showtvdbid=? AND season=? AND episode=?",
-                    [showtvdbid, season, episode])
-        # Clear multi-ep by release as well so we don't have partial history
-        # for a release
-        for result in sql_results:
-            myDB.select("DELETE FROM HISTORY where release=?", [result["release"]])
+    # Search for release in snatch history
+    sql_results = myDB.select("SELECT release, provider, date FROM history WHERE showtvdbid=? AND season=? AND episode=?",[showtvdbid, season, episode])
 
-        raise exceptions.FailedHistoryMultiSnatchException()
-    else:
-        return sql_results[0]["release"]
+    if sql_results:
+        # Clear any incomplete snatch records for this release if any exist
+        myDB.action("DELETE FROM history WHERE release=? AND date!=?",[sql_results[0]["release"], sql_results[0]["date"]])
 
-    
+        # Return release name found
+        logger.log(u"Release found: (%s)" % (sql_results[0]["release"]), logger.DEBUG)
+        return (str(sql_results[0]["release"]), str(sql_results[0]["provider"]))
+
+    # Return None, Release was not found
+    logger.log(u"Release not found: (%s, %s, %s)" % (showtvdbid, season, episode), logger.DEBUG)

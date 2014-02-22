@@ -19,8 +19,9 @@
 import sys
 import os
 import traceback
-import urllib, urllib2
+import urllib, urllib2, urlparse
 import re
+import datetime
 
 import sickbeard
 import generic
@@ -29,6 +30,8 @@ from sickbeard.name_parser.parser import NameParser, InvalidNameException
 from sickbeard import logger
 from sickbeard import tvcache
 from sickbeard import helpers
+from sickbeard import db
+from sickbeard import classes
 from sickbeard.show_name_helpers import allPossibleShowNames, sanitizeSceneName
 from sickbeard.exceptions import ex
 from sickbeard import encodingKludge as ek
@@ -65,20 +68,15 @@ class PublicHDProvider(generic.TorrentProvider):
         quality = Quality.sceneQuality(item[0])
         return quality
 
-    def _get_season_search_strings(self, show, season=None):
-
+    def _get_season_search_strings(self, show, season=None, wantedEp=None):
         search_string = {'Episode': []}
 
         if not show:
             return []
 
         self.show = show
-        seasonEp = show.getAllEpisodes(season)
 
-        wantedEp = [x for x in seasonEp if show.getOverview(x.status) in (Overview.WANTED, Overview.QUAL)]
-
-        #If Every episode in Season is a wanted Episode then search for Season first
-        if wantedEp == seasonEp and not show.air_by_date:
+        if season != None:
             search_string = {'Season': [], 'Episode': []}
             for show_name in set(allPossibleShowNames(show)):
                 ep_string = show_name +' S%02d' % int(season)  #1) ShowName SXX -SXXE
@@ -87,17 +85,16 @@ class PublicHDProvider(generic.TorrentProvider):
                 ep_string = show_name+' Season '  + str(season) #2) ShowName Season X
                 search_string['Season'].append(ep_string)
 
-        #Building the search string with the episodes we need
-        for ep_obj in wantedEp:
-            search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
+        if wantedEp != None:
+            for ep_obj in wantedEp:
+                search_string['Episode'] += self._get_episode_search_strings(ep_obj)[0]['Episode']
 
-        #If no Episode is needed then return an empty list
         if not search_string['Episode']:
             return []
 
         return [search_string]
 
-    def _get_episode_search_strings(self, ep_obj):
+    def _get_episode_search_strings(self, ep_obj, add_string=''):
 
         search_string = {'Episode': []}
 
@@ -114,7 +111,10 @@ class PublicHDProvider(generic.TorrentProvider):
             for show_name in set(allPossibleShowNames(ep_obj.show)):
                 ep_string = sanitizeSceneName(show_name) + ' ' + \
                 sickbeard.config.naming_ep_type[2] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode}
-                search_string['Episode'].append(ep_string)
+                
+                for x in add_string.split('|'):
+                    to_search = re.sub('\s+', ' ', ep_string + ' %s' %x)
+                    search_string['Episode'].append(to_search)
 
         return [search_string]
 
@@ -191,7 +191,12 @@ class PublicHDProvider(generic.TorrentProvider):
     def getURL(self, url, headers=None):
 
         try:
-            r = requests.get(url)
+            # Remove double-slashes from url
+            parsed = list(urlparse.urlparse(url))
+            parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
+            url = urlparse.urlunparse(parsed)
+
+            r = requests.get(url, verify=False)
         except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
             logger.log(u"Error loading "+self.name+" URL: " + str(sys.exc_info()) + " - " + ex(e), logger.ERROR)
             return None
@@ -235,6 +240,30 @@ class PublicHDProvider(generic.TorrentProvider):
             return False
         logger.log(u"Saved magnet link to " + magnetFileName + " ", logger.MESSAGE)
         return True
+
+    def findPropers(self, search_date=datetime.datetime.today()):
+
+        results = []
+
+        sqlResults = db.DBConnection().select('SELECT s.show_name, e.showid, e.season, e.episode, e.status, e.airdate FROM tv_episodes AS e' +
+                                              ' INNER JOIN tv_shows AS s ON (e.showid = s.tvdb_id)' +
+                                              ' WHERE e.airdate >= ' + str(search_date.toordinal()) +
+                                              ' AND (e.status IN (' + ','.join([str(x) for x in Quality.DOWNLOADED]) + ')' +
+                                              ' OR (e.status IN (' + ','.join([str(x) for x in Quality.SNATCHED]) + ')))'
+                                              )
+        if not sqlResults:
+            return []
+
+        for sqlShow in sqlResults:
+            curShow = helpers.findCertainShow(sickbeard.showList, int(sqlShow["showid"]))
+            curEp = curShow.getEpisode(int(sqlShow["season"]), int(sqlShow["episode"]))
+            searchString = self._get_episode_search_strings(curEp, add_string='PROPER|REPACK')
+
+            for item in self._doSearch(searchString[0]):
+                title, url = self._get_title_and_url(item)
+                results.append(classes.Proper(title, url, datetime.datetime.today()))
+
+        return results
 
 
 class PublicHDCache(tvcache.TVCache):

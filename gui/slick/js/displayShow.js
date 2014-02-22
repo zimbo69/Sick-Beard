@@ -162,4 +162,58 @@ $(document).ready(function(){
          });
     }
 
+    function setEpisodeSceneNumbering(forSeason, forEpisode, sceneSeason, sceneEpisode) {
+    	var sbRoot = $('#sbRoot').val();
+    	var showId = $('#showID').val();
+    	
+    	if (sceneSeason === '') sceneSeason = null;
+    	if (sceneEpisode === '') sceneEpisode = null;
+    	
+    	$.getJSON(sbRoot + '/home/setEpisodeSceneNumbering', 
+			{ 
+    			'show': showId,
+    			'forSeason': forSeason, 
+    			'forEpisode': forEpisode, 
+    			'sceneSeason': sceneSeason, 
+    			'sceneEpisode': sceneEpisode
+			}, 
+	    	function(data) {
+				//	Set the values we get back 
+				if (data.sceneSeason === null || data.sceneEpisode === null)
+				{
+					$('#sceneSeasonXEpisode_' + showId + '_' + forSeason +'_' + forEpisode).val('');
+				}
+				else
+				{
+					$('#sceneSeasonXEpisode_' + showId + '_' + forSeason +'_' + forEpisode).val(data.sceneSeason + 'x' + data.sceneEpisode);
+				}
+	            if (!data.success) 
+	            {
+	            	if (data.errorMessage) {
+	            		alert(data.errorMessage);
+	            	} else {
+	            		alert('Update failed.');
+	            	}
+	            }
+	        }
+    	);
+    }
+    
+    $('.sceneSeasonXEpisode').change(function() {
+    	//	Strip non-numeric characters
+    	$(this).val($(this).val().replace(/[^0-9xX]*/g,''));
+    	var forSeason = $(this).attr('data-for-season');
+    	var forEpisode = $(this).attr('data-for-episode');
+    	var showId = $('#showID').val();
+    	
+    	//var sceneEpisode = $('#sceneEpisode_' + showId + '_' + forSeason +'_' + forEpisode).val();
+    	var m = $(this).val().match(/^(\d+)x(\d+)$/i);
+    	var sceneSeason = null, sceneEpisode = null;
+    	if (m)
+    	{
+    		sceneSeason = m[1];
+    		sceneEpisode = m[2];
+    	}
+    	setEpisodeSceneNumbering(forSeason, forEpisode, sceneSeason, sceneEpisode);
+    });
 });

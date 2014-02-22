@@ -19,7 +19,7 @@
 import db
 import datetime
 
-from sickbeard.common import SNATCHED, SUBTITLED, Quality 
+from sickbeard.common import SNATCHED, SUBTITLED, FAILED, Quality 
 
 
 dateFormat = "%Y%m%d%H%M%S"
@@ -83,3 +83,13 @@ def logSubtitle(showid, season, episode, status, subtitleResult):
     action = Quality.compositeStatus(SUBTITLED, quality)
        
     _logHistoryItem(action, showid, season, episode, quality, resource, provider)
+
+def logFailed(tvdbid, season, episode, status, release, provider=None):
+
+    showid = int(tvdbid)
+    season = int(season)
+    epNum = int(episode)
+    status, quality  = Quality.splitCompositeStatus(status)
+    action = Quality.compositeStatus(FAILED, quality)
+
+    _logHistoryItem(action, showid, season, epNum, quality, release, provider)

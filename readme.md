@@ -17,6 +17,13 @@ Features include:
 * can notify XBMC, Growl, or Twitter when new episodes are downloaded
 * specials and double episode support
 
+XEM EDITION FEATURES ADDED:
+- Automatic XEM Scene Numbering/Naming for seasons/episodes (ported from Bricky's fork).
+- Failed handling now attempts to snatch a different release and excludes failed releases from future snatch attempts.
+- Episode Status Manager now allows for mass failing seasons/episodes to force retrying to download new releases.
+- DVD Order numbering for returning the results in DVD order instead of Air-By-Date order.
+- Improved Failed handling code for both NZB and Torrent downloads.
+- DupeKey/DupeScore for NZBGet 12+
 
 Sick Beard makes use of the following projects:
 

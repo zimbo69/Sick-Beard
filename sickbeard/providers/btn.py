@@ -190,7 +190,7 @@ class BTNProvider(generic.TorrentProvider):
 
         return (title, url)
 
-    def _get_season_search_strings(self, show, season=None):
+    def _get_season_search_strings(self, show, season=None, wantedEp=None):
         if not show:
             return [{}]
 

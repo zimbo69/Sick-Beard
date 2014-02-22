@@ -108,6 +108,10 @@ This <b>DOES NOT</b> allow Sick Beard to download non-english TV episodes!<br />
 <input type="checkbox" name="air_by_date" #if $show.air_by_date == 1 then "checked=\"checked\"" else ""# /><br />
 (check this if the show is released as Show.03.02.2010 rather than Show.S02E03) 
 <br /><br />
+<b>DVD Order: </b>
+<input type="checkbox" name="dvdorder" #if $show.dvdorder == 1 then "checked=\"checked\"" else ""# /><br/>
+(check this if you wish to use the DVD order instead of the Airing order)
+<br/><br/>
 <input type="submit" id="submit" value="Submit" class="btn btn-primary" />
 </form>
 

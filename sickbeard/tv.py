@@ -78,6 +78,7 @@ class TVShow(object):
         self.paused = 0
         self.air_by_date = 0
         self.subtitles = int(sickbeard.SUBTITLES_DEFAULT if sickbeard.SUBTITLES_DEFAULT else 0)
+        self.dvdorder = 0
         self.lang = lang
         self.last_update_tvdb = 1
 
@@ -141,7 +142,20 @@ class TVShow(object):
         sql_selection = sql_selection + " FROM tv_episodes tve WHERE showid = " + str(self.tvdbid)
 
         if season is not None:
-            sql_selection = sql_selection + " AND season = " + str(season)
+            if not self.air_by_date:
+                sql_selection = sql_selection + " AND season = " + str(season)
+            else:
+                segment_year, segment_month = map(int, season.split('-'))
+                min_date = datetime.date(segment_year, segment_month, 1)
+    
+                # it's easier to just hard code this than to worry about rolling the year over or making a month length map
+                if segment_month == 12:
+                    max_date = datetime.date(segment_year, 12, 31)
+                else:
+                    max_date = datetime.date(segment_year, segment_month + 1, 1) - datetime.timedelta(days=1)
+
+                sql_selection = sql_selection + " AND airdate >= " + str(min_date.toordinal()) + " AND airdate <= " + str(max_date.toordinal())
+
         if has_location:
             sql_selection = sql_selection + " AND location != '' "
 
@@ -238,7 +252,8 @@ class TVShow(object):
         if not ek.ek(os.path.isdir, self._location):
             logger.log(str(self.tvdbid) + u": Show dir doesn't exist, skipping NFO generation")
             return False
-
+        
+        logger.log(str(self.tvdbid) + u": Writing NFOs for show")
         for cur_provider in sickbeard.metadata_provider_dict.values():
             result = cur_provider.create_show_metadata(self) or result
 
@@ -310,7 +325,7 @@ class TVShow(object):
             parse_result = None
             try:
                 np = NameParser(False)
-                parse_result = np.parse(ep_file_name)
+                parse_result = np.parse(ep_file_name, False)
             except InvalidNameException:
                 pass
 
@@ -342,6 +357,9 @@ class TVShow(object):
 
         if self.lang:
             ltvdb_api_parms['language'] = self.lang
+
+        if self.dvdorder != 0:
+            ltvdb_api_parms['dvdorder'] = True
 
         t = tvdb_api.Tvdb(**ltvdb_api_parms)
 
@@ -393,6 +411,9 @@ class TVShow(object):
 
         if self.lang:
             ltvdb_api_parms['language'] = self.lang
+
+        if self.dvdorder != 0:
+            ltvdb_api_parms['dvdorder'] = True
 
         try:
             t = tvdb_api.Tvdb(**ltvdb_api_parms)
@@ -455,16 +476,23 @@ class TVShow(object):
             return
 
     def getImages(self, fanart=None, poster=None):
-
-        poster_result = fanart_result = season_thumb_result = False
+        fanart_result = poster_result = banner_result = False
+        season_posters_result = season_banners_result = season_all_poster_result = season_all_banner_result = False
 
         for cur_provider in sickbeard.metadata_provider_dict.values():
-            logger.log("Running season folders for " + cur_provider.name, logger.DEBUG)
-            poster_result = cur_provider.create_poster(self) or poster_result
-            fanart_result = cur_provider.create_fanart(self) or fanart_result
-            season_thumb_result = cur_provider.create_season_thumbs(self) or season_thumb_result
+            # FIXME: Needs to not show this message if the option is not enabled?
+            logger.log(u"Running metadata routines for " + cur_provider.name, logger.DEBUG)
 
-        return poster_result or fanart_result or season_thumb_result
+            fanart_result = cur_provider.create_fanart(self) or fanart_result
+            poster_result = cur_provider.create_poster(self) or poster_result
+            banner_result = cur_provider.create_banner(self) or banner_result
+
+            season_posters_result = cur_provider.create_season_posters(self) or season_posters_result
+            season_banners_result = cur_provider.create_season_banners(self) or season_banners_result
+            season_all_poster_result = cur_provider.create_season_all_poster(self) or season_all_poster_result
+            season_all_banner_result = cur_provider.create_season_all_banner(self) or season_all_banner_result
+
+        return fanart_result or poster_result or banner_result or season_posters_result or season_banners_result or season_all_poster_result or season_all_banner_result
 
     def loadLatestFromTVRage(self):
 
@@ -483,7 +511,7 @@ class TVShow(object):
             logger.log(u"Unable to add TVRage info: " + ex(e), logger.WARNING)
 
     # make a TVEpisode object from a media file
-    def makeEpFromFile(self, file):
+    def makeEpFromFile(self, file, fixSceneNumbering=False):
 
         if not ek.ek(os.path.isfile, file):
             logger.log(str(self.tvdbid) + u": That isn't even a real file dude... " + file)
@@ -493,7 +521,7 @@ class TVShow(object):
 
         try:
             myParser = NameParser()
-            parse_result = myParser.parse(file)
+            parse_result = myParser.parse(file, fixSceneNumbering)
         except InvalidNameException:
             logger.log(u"Unable to parse the filename " + file + " into a valid episode", logger.ERROR)
             return None
@@ -517,6 +545,9 @@ class TVShow(object):
 
                 if self.lang:
                     ltvdb_api_parms['language'] = self.lang
+
+                if self.dvdorder != 0:
+                    ltvdb_api_parms['dvdorder'] = True
 
                 t = tvdb_api.Tvdb(**ltvdb_api_parms)
 
@@ -664,6 +695,10 @@ class TVShow(object):
             else:
                 self.subtitles = 0    
 
+            self.dvdorder = sqlResults[0]["dvdorder"]
+            if self.dvdorder == None:
+                self.dvdorder = 0
+
             self.quality = int(sqlResults[0]["quality"])
             self.flatten_folders = int(sqlResults[0]["flatten_folders"])
             self.paused = int(sqlResults[0]["paused"])
@@ -704,6 +739,9 @@ class TVShow(object):
  
             if self.lang:
                 ltvdb_api_parms['language'] = self.lang
+
+            if self.dvdorder != 0:
+                ltvdb_api_parms['dvdorder'] = True
 
             t = tvdb_api.Tvdb(**ltvdb_api_parms)
 
@@ -809,7 +847,7 @@ class TVShow(object):
         
     def loadNFO(self):
 
-        if not os.path.isdir(self._location):
+        if not ek.ek(os.path.isdir, self._location):
             logger.log(str(self.tvdbid) + u": Show dir doesn't exist, can't load NFO")
             raise exceptions.NoNFOException("The show dir doesn't exist, no NFO could be loaded")
 
@@ -963,7 +1001,7 @@ class TVShow(object):
         try:
             episodes = db.DBConnection().select("SELECT location FROM tv_episodes WHERE showid = ? AND location NOT LIKE '' ORDER BY season DESC, episode DESC", [self.tvdbid])
             for episodeLoc in episodes:
-                episode = self.makeEpFromFile(episodeLoc['location']);
+                episode = self.makeEpFromFile(episodeLoc['location'])
                 subtitles = episode.downloadSubtitles(force=force)
         except Exception as e:
             logger.log("Error occurred when downloading subtitles: " + traceback.format_exc(), logger.DEBUG)
@@ -989,6 +1027,7 @@ class TVShow(object):
                         "paused": self.paused,
                         "air_by_date": self.air_by_date,
                         "subtitles": self.subtitles,
+                        "dvdorder": self.dvdorder,
                         "startyear": self.startyear,
                         "tvr_name": self.tvrname,
                         "lang": self.lang,
@@ -1313,6 +1352,7 @@ class TVEpisode(object):
                 self.name = sqlResults[0]["name"]
             self.season = season
             self.episode = episode
+
             self.description = sqlResults[0]["description"]
             if self.description == None:
                 self.description = ""
@@ -1365,7 +1405,10 @@ class TVEpisode(object):
                         ltvdb_api_parms['cache'] = False
 
                     if tvdb_lang:
-                            ltvdb_api_parms['language'] = tvdb_lang
+                        ltvdb_api_parms['language'] = tvdb_lang
+
+                    if self.dvdorder != 0:
+                        ltvdb_api_parms['dvdorder'] = True
 
                     t = tvdb_api.Tvdb(**ltvdb_api_parms)
                 else:
@@ -1421,7 +1464,7 @@ class TVEpisode(object):
 
         #early conversion to int so that episode doesn't get marked dirty
         self.tvdbid = int(myEp["id"])
-        
+
         #don't update show status if show dir is missing, unless missing show dirs are created during post-processing
         if not ek.ek(os.path.isdir, self.show._location) and not sickbeard.CREATE_MISSING_SHOW_DIRS:
             logger.log(u"The show dir is missing, not bothering to change the episode statuses since it'd probably be invalid")
@@ -1469,9 +1512,10 @@ class TVEpisode(object):
 
         # hasnfo, hastbn, status?
 
+
     def loadFromNFO(self, location):
 
-        if not os.path.isdir(self.show._location):
+        if not ek.ek(os.path.isdir, self.show._location):
             logger.log(str(self.show.tvdbid) + u": The show dir is missing, not bothering to try loading the episode NFO")
             return
 
@@ -1980,10 +2024,10 @@ class TVEpisode(object):
             logger.log(str(self.tvdbid) + u": File " + self.location + " is already named correctly, skipping", logger.DEBUG)
             return
 
-        related_files = postProcessor.PostProcessor(self.location)._list_associated_files(self.location)
+        related_files = postProcessor.PostProcessor(self.location).list_associated_files(self.location)
 
         if self.show.subtitles and sickbeard.SUBTITLES_DIR != '':
-            related_subs = postProcessor.PostProcessor(self.location)._list_associated_files(sickbeard.SUBTITLES_DIR, subtitles_only=True)
+            related_subs = postProcessor.PostProcessor(self.location).list_associated_files(sickbeard.SUBTITLES_DIR, subtitles_only=True)
             absolute_proper_subs_path = ek.ek(os.path.join, sickbeard.SUBTITLES_DIR, self.formatted_filename())
             
         logger.log(u"Files associated to " + self.location + ": " + str(related_files), logger.DEBUG)
@@ -2018,3 +2062,23 @@ class TVEpisode(object):
             self.saveToDB()
             for relEp in self.relatedEps:
                 relEp.saveToDB()
+                
+    def convertToSceneNumbering(self):
+        if self.show.air_by_date: return
+        
+        if self.season is None: return # can't work without a season
+        if self.episode is None: return # need to know the episode
+        
+        tvdb_id = self.show.tvdbid
+        
+        (self.season, self.episode) = sickbeard.scene_numbering.get_scene_numbering(tvdb_id, self.season, self.episode)
+
+    def convertToTVDB(self):
+        if self.show.air_by_date: return
+
+        if self.season is None: return # can't work without a season
+        if self.episode is None: return # need to know the episode
+
+        tvdb_id = self.show.tvdbid
+
+        (self.season, self.episode) = sickbeard.scene_numbering.get_tvdb_numbering(tvdb_id, self.season, self.episode)

@@ -20,10 +20,14 @@ import os.path
 import operator
 import platform
 import re
+import uuid
 
 from sickbeard import version
 
-USER_AGENT = 'Sick Beard/alpha2-' + version.SICKBEARD_VERSION.replace(' ', '-') + ' (' + platform.system() + ' ' + platform.release() + ')'
+INSTANCE_ID = str(uuid.uuid1())
+USER_AGENT = ('Sick Beard/' + version.SICKBEARD_VERSION.replace(' ', '-') +
+             ' (' + platform.system() + '; ' + platform.release() +
+             '; ' + INSTANCE_ID + ')')
 
 mediaExtensions = ['avi', 'mkv', 'mpg', 'mpeg', 'wmv',
                    'ogm', 'mp4', 'iso', 'img', 'divx',
@@ -166,13 +170,15 @@ class Quality:
 
         checkName = lambda list, func: func([re.search(x, name, re.I) for x in list])
 
-        if checkName(["(pdtv|hdtv|dsr|tvrip|web.dl|webrip).(xvid|x264|h.?264)"], all) and not checkName(["(720|1080)[pi]"], all):
+        if checkName(["(pdtv|hdtv|dsr|tvrip|web.dl|webrip).(xvid|x264)"], all) and not checkName(["(720|1080)[pi]"], all):
+            return Quality.SDTV
+        elif checkName(["web.dl|webrip", "h.?264"], all) and not checkName(["(720|1080)[pi]"], all):
             return Quality.SDTV
         elif checkName(["(dvdrip|b[r|d]rip)(.ws)?.(xvid|divx|x264)"], any) and not checkName(["(720|1080)[pi]"], all):
             return Quality.SDDVD
         elif checkName(["720p", "hdtv", "x264"], all) or checkName(["hr.ws.pdtv.x264"], any) and not checkName(["(1080)[pi]"], all):          
             return Quality.HDTV                                                                        
-        elif checkName(["720p|1080i", "hdtv", "mpeg-?2"], all):
+        elif checkName(["720p|1080i", "hdtv", "mpeg-?2"], all) or checkName(["1080i.hdtv", "h.?264"], all):
             return Quality.RAWHDTV                                                                     
         elif checkName(["1080p", "hdtv", "x264"], all):         
             return Quality.FULLHDTV                                                                    

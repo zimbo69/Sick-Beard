@@ -166,7 +166,7 @@ def sanitizeFileName(name):
     return name
 
 
-def getURL(url, post_data=None, headers=[]):
+def getURL(url, post_data=None, headers=[], timeout=None):
     """
 Returns a byte-string retrieved from the url provider.
 """
@@ -177,7 +177,16 @@ Returns a byte-string retrieved from the url provider.
         opener.addheaders.append(cur_header)
 
     try:
-        usock = opener.open(url, post_data)
+        # Remove double-slashes from url
+        parsed = list(urlparse.urlparse(url))
+        parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
+        url = urlparse.urlunparse(parsed)
+
+        if sys.version_info < (2, 6) or timeout is None:
+            usock = opener.open(url)
+        else:
+            usock = opener.open(url, timeout=timeout)
+
         url = usock.geturl()
         encoding = usock.info().get("Content-Encoding")
 
@@ -445,7 +454,7 @@ def buildNFOXML(myShow):
 
 def searchDBForShow(regShowName):
 
-    showNames = [re.sub('[. -]', ' ', regShowName)]
+    showNames = [re.sub('[. -]', ' ', regShowName),regShowName]
 
     myDB = db.DBConnection()
 
@@ -453,7 +462,11 @@ def searchDBForShow(regShowName):
 
     for showName in showNames:
 
-        sqlResults = myDB.select("SELECT * FROM tv_shows WHERE show_name LIKE ? OR tvr_name LIKE ?", [showName, showName])
+        show = get_show_by_name(showName,sickbeard.showList)
+        if show:
+            sqlResults = myDB.select("SELECT * FROM tv_shows WHERE show_name LIKE ? OR tvr_name LIKE ?", [show.name, show.name])
+        else:
+            sqlResults = myDB.select("SELECT * FROM tv_shows WHERE show_name LIKE ? OR tvr_name LIKE ?", [showName, showName])
 
         if len(sqlResults) == 1:
             return (int(sqlResults[0]["tvdb_id"]), sqlResults[0]["show_name"])
@@ -543,7 +556,6 @@ def hardlinkFile(srcFile, destFile):
     except:
         logger.log(u"Failed to create hardlink of " + srcFile + " at " + destFile + ". Copying instead", logger.ERROR)
         copyFile(srcFile, destFile)
-        ek.ek(os.unlink, srcFile)
 
 def symlink(src, dst):
     if os.name == 'nt':
@@ -560,7 +572,6 @@ def moveAndSymlinkFile(srcFile, destFile):
     except:
         logger.log(u"Failed to create symlink of " + srcFile + " at " + destFile + ". Copying instead", logger.ERROR)
         copyFile(srcFile, destFile)
-        ek.ek(os.unlink, srcFile)
 
 def make_dirs(path):
     """
@@ -1028,3 +1039,55 @@ def encrypt(data, encryption_version=0, decrypt=False):
         
 def decrypt(data, encryption_version=0):
 	return encrypt(data, encryption_version, decrypt=True)
+
+def full_sanitizeSceneName(name):
+    return re.sub('[. -]', ' ', sanitizeSceneName(name)).lower().lstrip()
+
+def _check_against_names(name, show):
+    nameInQuestion = full_sanitizeSceneName(name)
+
+    showNames = [show.name]
+    showNames.extend(sickbeard.scene_exceptions.get_scene_exceptions(show.tvdbid))
+
+    for showName in showNames:
+        nameFromList = full_sanitizeSceneName(showName)
+        #logger.log(u"Comparing names: '"+nameFromList+"' vs '"+nameInQuestion+"'", logger.DEBUG)
+        if nameFromList == nameInQuestion:
+            return True
+
+    return False
+
+def get_show_by_name(name, showList, useTvdb=False):
+    logger.log(u"Trying to get the tvdbid for "+name, logger.DEBUG)
+
+    for show in showList:
+        if _check_against_names(name, show):
+            logger.log(u"Matched "+name+" in the showlist to the show "+show.name, logger.DEBUG)
+            return show
+
+    if useTvdb:
+        try:
+            t = tvdb_api.Tvdb(custom_ui=classes.ShowListUI, **sickbeard.TVDB_API_PARMS)
+            showObj = t[name]
+        except (tvdb_exceptions.tvdb_exception):
+            # if none found, search on all languages
+            try:
+                # There's gotta be a better way of doing this but we don't wanna
+                # change the language value elsewhere
+                ltvdb_api_parms = sickbeard.TVDB_API_PARMS.copy()
+
+                ltvdb_api_parms['search_all_languages'] = True
+                t = tvdb_api.Tvdb(custom_ui=classes.ShowListUI, **ltvdb_api_parms)
+                showObj = t[name]
+            except (tvdb_exceptions.tvdb_exception, IOError):
+                pass
+
+            return None
+        except (IOError):
+            return None
+        else:
+            show = findCertainShow(sickbeard.showList, int(showObj["id"]))
+            if show:
+                return show
+
+    return None

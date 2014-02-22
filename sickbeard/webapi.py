@@ -892,7 +892,7 @@ class CMD_EpisodeSetStatus(ApiCall):
     _help = {"desc": "set status of an episode or season (when no ep is provided)",
              "requiredParameters": {"tvdbid": {"desc": "thetvdb.com unique id of a show"},
                                    "season": {"desc": "the season number"},
-                                   "status": {"desc": "the status values: wanted, skipped, archived, ignored"}
+                                   "status": {"desc": "the status values: wanted, skipped, archived, ignored, failed"}
                                   },
              "optionalParameters": {"episode": {"desc": "the episode number"},
                                     "force": {"desc": "should we replace existing (downloaded) episodes or not"}
@@ -903,7 +903,7 @@ class CMD_EpisodeSetStatus(ApiCall):
         # required
         self.tvdbid, args = self.check_params(args, kwargs, "tvdbid", None, True, "int", [])
         self.s, args = self.check_params(args, kwargs, "season", None, True, "int", [])
-        self.status, args = self.check_params(args, kwargs, "status", None, True, "string", ["wanted", "skipped", "archived", "ignored"])
+        self.status, args = self.check_params(args, kwargs, "status", None, True, "string", ["wanted", "skipped", "archived", "ignored", "failed"])
         # optional
         self.e, args = self.check_params(args, kwargs, "episode", None, False, "int", [])
         self.force, args = self.check_params(args, kwargs, "force", 0, False, "bool", [])

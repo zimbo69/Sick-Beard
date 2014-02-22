@@ -20,20 +20,25 @@
 
 import datetime
 import os
+import sys
 import re
+import urllib2
+import copy
+import itertools
+import operator
+import collections
 
 import sickbeard
 
 from sickbeard import helpers, classes, logger, db
-
 from sickbeard.common import Quality, MULTI_EP_RESULT, SEASON_RESULT#, SEED_POLICY_TIME, SEED_POLICY_RATIO
 from sickbeard import tvcache
 from sickbeard import encodingKludge as ek
 from sickbeard.exceptions import ex
-
 from lib.hachoir_parser import createParser
-
 from sickbeard.name_parser.parser import NameParser, InvalidNameException
+from sickbeard import scene_numbering
+from sickbeard.common import Quality, Overview
 
 class GenericProvider:
 
@@ -56,7 +61,7 @@ class GenericProvider:
 
     @staticmethod
     def makeID(name):
-        return re.sub("[^\w\d_]", "_", name).lower()
+         return re.sub("[^\w\d_]", "_", name.strip().lower())
 
     def imageName(self):
         return self.getID() + '.png'
@@ -171,8 +176,7 @@ class GenericProvider:
         return True
 
     def searchRSS(self):
-        
-        self._checkAuth() 
+        self._checkAuth()
         self.cache.updateCache()
         return self.cache.findNeededEpisodes()
 
@@ -217,11 +221,19 @@ class GenericProvider:
         
     def findEpisode(self, episode, manualSearch=False):
 
-        logger.log(u"Searching "+self.name+" for " + episode.prettyName())
+        self._checkAuth()
+
+        logger.log(u'Searching "{0}" for "{1}"'
+                   .format(self.name, episode.prettyName()))
+
+        # XEM episode scene numbering
+        sceneEpisode = copy.copy(episode)
+        sceneEpisode.convertToSceneNumbering()
 
         self.cache.updateCache()
         results = self.cache.searchCache(episode, manualSearch)
         logger.log(u"Cache results: " + str(results), logger.DEBUG)
+        logger.log(u"manualSearch: " + str(manualSearch), logger.DEBUG)
 
         # if we got some results then use them no matter what.
         # OR
@@ -231,8 +243,8 @@ class GenericProvider:
 
         itemList = []
 
-        for cur_search_string in self._get_episode_search_strings(episode):
-            itemList += self._doSearch(cur_search_string)
+        for cur_search_string in self._get_episode_search_strings(sceneEpisode):
+            itemList += self._doSearch(cur_search_string, show=episode.show)
 
         for item in itemList:
 
@@ -241,17 +253,17 @@ class GenericProvider:
             # parse the file name
             try:
                 myParser = NameParser()
-                parse_result = myParser.parse(title)
+                parse_result = myParser.parse(title, fix_scene_numbering=True)
             except InvalidNameException:
                 logger.log(u"Unable to parse the filename " + title + " into a valid episode", logger.WARNING)
                 continue
 
             if episode.show.air_by_date:
                 if parse_result.air_date != episode.airdate:
-                    logger.log("Episode " + title + " didn't air on " + str(episode.airdate) + ", skipping it", logger.DEBUG)
+                    logger.log(u"Episode " + title + " didn't air on " + str(episode.airdate) + ", skipping it", logger.DEBUG)
                     continue
             elif parse_result.season_number != episode.season or episode.episode not in parse_result.episode_numbers:
-                logger.log("Episode " + title + " isn't "+str(episode.season) + "x" + str(episode.episode) + ", skipping it", logger.DEBUG)
+                logger.log(u"Episode " + title + " isn't " + str(episode.season) + "x" + str(episode.episode) + ", skipping it", logger.DEBUG)
                 continue
 
             quality = self.getQuality(item)
@@ -277,9 +289,25 @@ class GenericProvider:
 
         itemList = []
         results = {}
+        sceneSeasons = {}
 
-        for curString in self._get_season_search_strings(show, season):
-            itemList += self._doSearch(curString)
+        # If Every episode in this Season is a wanted Episode then search for this Season first
+        seasonEp = show.getAllEpisodes(season)
+        wantedEp = [x for x in seasonEp if show.getOverview(x.status) in (Overview.WANTED, Overview.QUAL)]
+
+        # XEM scene numbering
+        for e in wantedEp:
+            se = copy.copy(e)
+            se.convertToSceneNumbering()
+            sceneSeasons.setdefault(se.season,[]).append(se)
+
+        if wantedEp == seasonEp and not show.air_by_date:
+            for sceneSeason,sceneEpisodes in sceneSeasons.iteritems():
+                for curString in self._get_season_search_strings(show, sceneSeason, sceneEpisodes):
+                    itemList += self._doSearch(curString)
+        else:
+            for curString in self._get_season_search_strings(show, None, wantedEp):
+                itemList += self._doSearch(curString)
 
         for item in itemList:
 
@@ -290,7 +318,7 @@ class GenericProvider:
             # parse the file name
             try:
                 myParser = NameParser(False)
-                parse_result = myParser.parse(title)
+                parse_result = myParser.parse(title, True)
             except InvalidNameException:
                 logger.log(u"Unable to parse the filename " + title + " into a valid episode", logger.WARNING)
                 continue
@@ -304,19 +332,19 @@ class GenericProvider:
                 # we just use the existing info for normal searches
                 actual_season = season
                 actual_episodes = parse_result.episode_numbers
-            
+
             else:
                 if not parse_result.air_by_date:
                     logger.log(u"This is supposed to be an air-by-date search but the result "+title+" didn't parse as one, skipping it", logger.DEBUG)
                     continue
-                
+
                 myDB = db.DBConnection()
                 sql_results = myDB.select("SELECT season, episode FROM tv_episodes WHERE showid = ? AND airdate = ?", [show.tvdbid, parse_result.air_date.toordinal()])
 
                 if len(sql_results) != 1:
                     logger.log(u"Tried to look up the date for the episode "+title+" but the database didn't give proper results, skipping it", logger.WARNING)
                     continue
-                
+
                 actual_season = int(sql_results[0]["season"])
                 actual_episodes = [int(sql_results[0]["episode"])]
 
@@ -326,7 +354,7 @@ class GenericProvider:
                 if not show.wantEpisode(actual_season, epNo, quality):
                     wantEp = False
                     break
-            
+
             if not wantEp:
                 logger.log(u"Ignoring result " + title + " because we don't want an episode that is " + Quality.qualityStrings[quality], logger.DEBUG)
                 continue
@@ -343,7 +371,7 @@ class GenericProvider:
             result.name = title
             result.quality = quality
             result.provider = self
-            result.content = None 
+            result.content = None
 
             if len(epObj) == 1:
                 epNum = epObj[0].episode
