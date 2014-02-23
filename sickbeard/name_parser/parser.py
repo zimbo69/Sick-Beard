@@ -187,12 +187,10 @@ class NameParser(object):
         
         cached = name_parser_cache.get(name)
         if cached:
-            #if fix_scene_numbering:
-                #cached_fixed = copy.copy(cached)
-                #cached_fixed.fix_scene_numbering()
-                #return cached_fixed
-
-            # return cached result
+            if fix_scene_numbering:
+                cached_fixed = copy.copy(cached)
+                cached_fixed.fix_scene_numbering()
+                return cached_fixed
             return cached
 
         # break it into parts if there are any (dirname, file name, extension)
@@ -242,16 +240,15 @@ class NameParser(object):
         if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
             raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
 
-        # fix the scene numbering
-        if fix_scene_numbering:
-            final_result.fix_scene_numbering()
+        #if fix_scene_numbering:
+        #    final_result.fix_scene_numbering()
 
         name_parser_cache.add(name, final_result)
         
-        #if fix_scene_numbering:
-            #final_result_fixed = copy.copy(final_result)
-            #final_result_fixed.fix_scene_numbering()
-            #return final_result_fixed
+        if fix_scene_numbering:
+            final_result_fixed = copy.copy(final_result)
+            final_result_fixed.fix_scene_numbering()
+            return final_result_fixed
 
         # return final result
         return final_result
