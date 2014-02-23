@@ -19,7 +19,7 @@
 import datetime
 import os.path
 import re
-
+import copy
 import regexes
 
 import sickbeard
@@ -187,7 +187,12 @@ class NameParser(object):
         
         cached = name_parser_cache.get(name)
         if cached:
-            if fix_scene_numbering: cached.fix_scene_numbering()
+            #if fix_scene_numbering:
+                #cached_fixed = copy.copy(cached)
+                #cached_fixed.fix_scene_numbering()
+                #return cached_fixed
+
+            # return cached result
             return cached
 
         # break it into parts if there are any (dirname, file name, extension)
@@ -200,7 +205,7 @@ class NameParser(object):
         
         # use only the direct parent dir
         dir_name = os.path.basename(dir_name)
-        
+
         # set up a result to use
         final_result = ParseResult(name)
         
@@ -216,11 +221,15 @@ class NameParser(object):
         if not final_result.air_date:
             final_result.season_number = self._combine_results(file_name_result, dir_name_result, 'season_number')
             final_result.episode_numbers = self._combine_results(file_name_result, dir_name_result, 'episode_numbers')
-        
+
         # if the dirname has a release group/show name I believe it over the filename
         final_result.series_name = self._combine_results(dir_name_result, file_name_result, 'series_name')
         final_result.extra_info = self._combine_results(dir_name_result, file_name_result, 'extra_info')
         final_result.release_group = self._combine_results(dir_name_result, file_name_result, 'release_group')
+
+        # fix the scene numbering
+        if fix_scene_numbering:
+            final_result.fix_scene_numbering()
 
         final_result.which_regex = []
         if final_result == file_name_result:
@@ -239,8 +248,12 @@ class NameParser(object):
 
         name_parser_cache.add(name, final_result)
         
-        if fix_scene_numbering: final_result.fix_scene_numbering()
-        # return it
+        #if fix_scene_numbering:
+            #final_result_fixed = copy.copy(final_result)
+            #final_result_fixed.fix_scene_numbering()
+            #return final_result_fixed
+
+        # return final result
         return final_result
     
     @classmethod
@@ -410,8 +423,6 @@ class ParseResult(object):
         
         self.episode_numbers = new_episode_numbers
         self.season_number = new_season_numbers[0]
-        
-        
 
 class NameParserCache(object):
     #TODO: check if the fifo list can beskiped and only use one dict
