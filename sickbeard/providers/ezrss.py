@@ -78,8 +78,7 @@ class EZRSSProvider(generic.TorrentProvider):
 
         params['show_name'] = helpers.sanitizeSceneName(show.name, ezrss=True).replace('.', ' ').encode('utf-8')
 
-        if searchSeason:
-            params['season'] = season
+        params['season'] = season
 
         return [params]
 
