@@ -227,10 +227,6 @@ class NameParser(object):
         final_result.extra_info = self._combine_results(dir_name_result, file_name_result, 'extra_info')
         final_result.release_group = self._combine_results(dir_name_result, file_name_result, 'release_group')
 
-        # fix the scene numbering
-        if fix_scene_numbering:
-            final_result.fix_scene_numbering()
-
         final_result.which_regex = []
         if final_result == file_name_result:
             final_result.which_regex = file_name_result.which_regex
@@ -245,6 +241,10 @@ class NameParser(object):
         # if there's no useful info in it then raise an exception
         if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
             raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
+
+        # fix the scene numbering
+        if fix_scene_numbering:
+            final_result.fix_scene_numbering()
 
         name_parser_cache.add(name, final_result)
         
