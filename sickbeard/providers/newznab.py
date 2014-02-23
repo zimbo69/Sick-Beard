@@ -100,16 +100,15 @@ class NewznabProvider(generic.NZBProvider):
             else:
                 cur_params['q'] = helpers.sanitizeSceneName(cur_exception)
 
-            if searchSeason:
-                # air-by-date means &season=2010&q=2010.03, no other way to do it atm
-                if show.air_by_date:
-                    cur_params['season'] = season.split('-')[0]
-                    if 'q' in cur_params:
-                        cur_params['q'] += '.' + season.replace('-', '.')
-                    else:
-                        cur_params['q'] = season.replace('-', '.')
+            # air-by-date means &season=2010&q=2010.03, no other way to do it atm
+            if show.air_by_date:
+                cur_params['season'] = season.split('-')[0]
+                if 'q' in cur_params:
+                    cur_params['q'] += '.' + season.replace('-', '.')
                 else:
-                    cur_params['season'] = str(season)
+                    cur_params['q'] = season.replace('-', '.')
+            else:
+                cur_params['season'] = str(season)
 
             # hack to only add a single result if it's a rageid search
             if not ('rid' in cur_params and to_return):
