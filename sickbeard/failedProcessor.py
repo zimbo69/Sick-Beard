@@ -54,7 +54,7 @@ class FailedProcessor(object):
 
         parser = NameParser(False)
         try:
-            parsed = parser.parse(releaseName)
+            parsed = parser.parse(releaseName, True)
         except InvalidNameException:
             self._log(u"Error: release name is invalid: " + releaseName, logger.WARNING)
             raise exceptions.FailedProcessingFailed()
@@ -86,8 +86,8 @@ class FailedProcessor(object):
 #        self.log += failed_history.logFailed(releaseName)
         
         self.log += failed_history.markFailed(self._show_obj, parsed.season_number, parsed.episode_numbers)
-        self._log(u"Marking release as Failed: " + releaseName)
-        self.log += failed_history.logFailed(releaseName)
+#        self._log(u"Marking release as Failed: " + releaseName)
+#        self.log += failed_history.logFailed(releaseName)
         
         cur_failed_queue_item = search_queue.FailedQueueItem(self._show_obj, parsed.season_number)
         sickbeard.searchQueueScheduler.action.add_item(cur_failed_queue_item)
