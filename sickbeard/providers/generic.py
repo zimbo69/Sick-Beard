@@ -294,15 +294,12 @@ class GenericProvider:
         sceneSeasons = {}
         searchSeason = False
 
-        # If Every episode in this Season is a wanted Episode then search for this Season first
+
+        # convert wanted seasons and episodes to XEM scene numbering
         seasonEp = show.getAllEpisodes(season)
         wantedEp = [x for x in seasonEp if show.getOverview(x.status) in (Overview.WANTED, Overview.QUAL)]
-
-        # XEM scene numbering
-        for e in wantedEp:
-            se = copy.copy(e)
-            se.convertToSceneNumbering()
-            sceneSeasons.setdefault(se.season,[]).append(se)
+        map(lambda x: x.convertToSceneNumbering(), wantedEp)
+        for x in wantedEp: sceneSeasons.setdefault(x.season,[]).append(x)
 
         if wantedEp == seasonEp and not show.air_by_date:
             searchSeason = True
