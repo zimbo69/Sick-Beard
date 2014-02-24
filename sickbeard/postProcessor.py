@@ -678,6 +678,9 @@ class PostProcessor(object):
                 self._log(u"Unable to create episode: " + ex(e), logger.DEBUG)
                 raise exceptions.PostProcessingFailed()
 
+            # convert scene numbered episode to tvdb numbered
+            curEp.convertToTVDB()
+            
             # associate all the episodes together under a single root episode
             if root_ep == None:
                 root_ep = curEp
