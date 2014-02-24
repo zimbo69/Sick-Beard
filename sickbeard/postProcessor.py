@@ -666,14 +666,13 @@ class PostProcessor(object):
 
         root_ep = None
         for cur_episode in episodes:
-            episode = int(cur_episode)
+            # convert episode from scene numbering to TVDB numbering
+            (s, e) = sickbeard.scene_numbering.get_tvdb_numbering(tvdb_id, season, int(cur_episode))
 
-            self._log(u"Retrieving episode object for " + str(season) + "x" + str(episode), logger.DEBUG)
+            self._log(u"Retrieving episode object for " + str(s) + "x" + str(e), logger.DEBUG)
 
             # now that we've figured out which episode this file is just load it manually
             try:
-                # convert episode from scene numbering to TVDB numbering
-                (s, e) = sickbeard.scene_numbering.get_tvdb_numbering(tvdb_id, season, episode)
                 curEp = show_obj.getEpisode(s, e)
             except exceptions.EpisodeNotFoundException, e:
                 self._log(u"Unable to create episode: " + ex(e), logger.DEBUG)
