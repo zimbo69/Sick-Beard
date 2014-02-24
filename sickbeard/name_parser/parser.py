@@ -187,7 +187,11 @@ class NameParser(object):
         cached = name_parser_cache.get(name)
 
         if cached:
-           return cached
+            if fix_scene_numbering:
+                cached_fixed = copy.copy(cached)
+                cached_fixed.fix_scene_numbering()
+                return cached_fixed
+            return cached
 
         # break it into parts if there are any (dirname, file name, extension)
         dir_name, file_name = os.path.split(name)
@@ -236,11 +240,12 @@ class NameParser(object):
         if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
             raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
 
-        # check if we want to convert a scene numbered episode to TVDB numbering
+        name_parser_cache.add(name, final_result)
+
         if fix_scene_numbering:
-            name_parser_cache.add(name, final_result.fix_scene_numbering())
-        else:
-            name_parser_cache.add(name, final_result)
+            result_fixed = copy.copy(final_result)
+            result_fixed.fix_scene_numbering()
+            return result_fixed
 
         return final_result
     
