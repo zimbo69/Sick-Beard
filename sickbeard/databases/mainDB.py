@@ -27,7 +27,7 @@ from sickbeard import encodingKludge as ek
 from sickbeard.name_parser.parser import NameParser, InvalidNameException
 
 MIN_DB_VERSION = 9 # oldest db version we support migrating from
-MAX_DB_VERSION = 20
+MAX_DB_VERSION = 21
 
 class MainSanityCheck(db.DBSanityCheck):
 
@@ -114,7 +114,7 @@ class InitialSchema (db.SchemaUpgrade):
                 "CREATE INDEX idx_tv_episodes_showid_airdate ON tv_episodes(showid,airdate);",
                 "CREATE INDEX idx_showid ON tv_episodes (showid);",
                 "CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);",
-                "INSERT INTO db_version (db_version) VALUES (18);"
+                "INSERT INTO db_version (db_version) VALUES (21);"
                 ]
             for query in queries:
                 self.connection.action(query)
@@ -477,4 +477,23 @@ class AddDvdOrderOption(AddLastProperSearch):
     def execute(self):
         self.connection.action("ALTER TABLE tv_shows ADD dvdorder NUMERIC")
         self.incDBVersion()
-        
+
+class AddIndicesToTvEpisodes(AddLastUpdateTVDB):
+    """ Adding indices to tv episodes """
+
+    def test(self):
+        return self.checkDBVersion() >= 21
+
+    def execute(self):
+        backupDatabase(21)
+
+        logger.log(u"Adding index idx_status to tv_episodes")
+        self.connection.action("CREATE INDEX idx_status ON tv_episodes (status,season,episode,airdate)")
+
+        logger.log(u"Adding index idx_sta_epi_air to tv_episodes")
+        self.connection.action("CREATE INDEX idx_sta_epi_air ON tv_episodes (status,episode, airdate)")
+
+        logger.log(u"Adding index idx_sta_epi_sta_air to tv_episodes")
+        self.connection.action("CREATE INDEX idx_sta_epi_sta_air ON tv_episodes (season,episode, status, airdate)")
+
+        self.incDBVersion()
