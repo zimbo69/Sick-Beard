@@ -181,7 +181,7 @@ class NameParser(object):
             
             return result
 
-    def parse(self, name):
+    def parse(self, name, fix_scene_numbering=False):
         name = self._unicodify(name)
 
         cached = name_parser_cache.get(name)
@@ -236,7 +236,11 @@ class NameParser(object):
         if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
             raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
 
-        name_parser_cache.add(name, final_result.fix_scene_numbering())
+        # check if we want to convert a scene numbered episode to TVDB numbering
+        if fix_scene_numbering:
+            name_parser_cache.add(name, final_result.fix_scene_numbering())
+        else:
+            name_parser_cache.add(name, final_result)
 
         return final_result
     

@@ -200,7 +200,7 @@ class TVCache():
         for curName in [name] + extraNames:
             try:
                 myParser = NameParser()
-                parse_result = myParser.parse(curName)
+                parse_result = myParser.parse(curName, True)
             except InvalidNameException:
                 logger.log(u"Unable to parse the filename " + curName + " into a valid episode", logger.DEBUG)
                 continue
