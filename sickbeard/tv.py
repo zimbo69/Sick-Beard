@@ -325,7 +325,7 @@ class TVShow(object):
             parse_result = None
             try:
                 np = NameParser(False)
-                parse_result = np.parse(ep_file_name, False)
+                parse_result = np.parse(ep_file_name)
             except InvalidNameException:
                 pass
 
@@ -511,7 +511,7 @@ class TVShow(object):
             logger.log(u"Unable to add TVRage info: " + ex(e), logger.WARNING)
 
     # make a TVEpisode object from a media file
-    def makeEpFromFile(self, file, fixSceneNumbering=False):
+    def makeEpFromFile(self, file):
 
         if not ek.ek(os.path.isfile, file):
             logger.log(str(self.tvdbid) + u": That isn't even a real file dude... " + file)
@@ -521,7 +521,7 @@ class TVShow(object):
 
         try:
             myParser = NameParser()
-            parse_result = myParser.parse(file, fixSceneNumbering)
+            parse_result = myParser.parse(file)
         except InvalidNameException:
             logger.log(u"Unable to parse the filename " + file + " into a valid episode", logger.ERROR)
             return None

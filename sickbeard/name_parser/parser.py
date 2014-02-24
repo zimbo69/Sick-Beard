@@ -182,10 +182,10 @@ class NameParser(object):
             return result
 
     def parse(self, name, fix_scene_numbering=False):
-        
         name = self._unicodify(name)
-        
+
         cached = name_parser_cache.get(name)
+
         if cached:
             if fix_scene_numbering:
                 cached_fixed = copy.copy(cached)
@@ -200,16 +200,16 @@ class NameParser(object):
             base_file_name = ext_match.group(1)
         else:
             base_file_name = file_name
-        
+
         # use only the direct parent dir
         dir_name = os.path.basename(dir_name)
 
         # set up a result to use
         final_result = ParseResult(name)
-        
+
         # try parsing the file name
         file_name_result = self._parse_string(base_file_name)
-        
+
         # parse the dirname for extra info if needed
         dir_name_result = self._parse_string(dir_name)
 
@@ -240,17 +240,13 @@ class NameParser(object):
         if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
             raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
 
-        #if fix_scene_numbering:
-        #    final_result.fix_scene_numbering()
-
         name_parser_cache.add(name, final_result)
-        
-        if fix_scene_numbering:
-            final_result_fixed = copy.copy(final_result)
-            final_result_fixed.fix_scene_numbering()
-            return final_result_fixed
 
-        # return final result
+        if fix_scene_numbering:
+            result_fixed = copy.copy(final_result)
+            result_fixed.fix_scene_numbering()
+            return result_fixed
+
         return final_result
     
     @classmethod
@@ -390,9 +386,9 @@ class ParseResult(object):
         The changes the parsed result (which is assumed to be scene numbering) to
         tvdb numbering, if necessary.
         """
-        if self.air_by_date: return # scene numbering does not apply to air-by-date
-        if self.season_number == None: return # can't work without a season
-        if len(self.episode_numbers) == 0: return # need at least one episode
+        if self.air_by_date: return self # scene numbering does not apply to air-by-date
+        if self.season_number == None: return self # can't work without a season
+        if len(self.episode_numbers) == 0: return self # need at least one episode
         
         tvdb_id = NameParser.series_name_to_tvdb_id(self.series_name, True, True, False)
         
@@ -420,6 +416,8 @@ class ParseResult(object):
         
         self.episode_numbers = new_episode_numbers
         self.season_number = new_season_numbers[0]
+
+        return self
 
 class NameParserCache(object):
     #TODO: check if the fifo list can beskiped and only use one dict

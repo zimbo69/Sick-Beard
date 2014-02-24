@@ -38,6 +38,7 @@ from sickbeard import notifiers
 from sickbeard import show_name_helpers
 from sickbeard import scene_exceptions
 from sickbeard import failed_history
+from sickbeard import scene_numbering
 
 from sickbeard import encodingKludge as ek
 from sickbeard.exceptions import ex
@@ -446,7 +447,8 @@ class PostProcessor(object):
 
         # parse the name to break it into show name, season, and episode
         np = NameParser(file)
-        parse_result = np.parse(name, True)
+        parse_result = np.parse(name)
+
         self._log("Parsed " + name + " into " + str(parse_result).decode('utf-8'), logger.DEBUG)
 
         if parse_result.air_by_date:
@@ -669,6 +671,8 @@ class PostProcessor(object):
 
             # now that we've figured out which episode this file is just load it manually
             try:
+                # convert episode from scene numbering to TVDB numbering
+                season, episode = scene_numbering.get_tvdb_numbering(tvdb_id, season, episode)
                 curEp = show_obj.getEpisode(season, episode)
             except exceptions.EpisodeNotFoundException, e:
                 self._log(u"Unable to create episode: " + ex(e), logger.DEBUG)

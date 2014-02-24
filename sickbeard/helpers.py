@@ -1060,10 +1060,11 @@ def _check_against_names(name, show):
 def get_show_by_name(name, showList, useTvdb=False):
     logger.log(u"Trying to get the tvdbid for "+name, logger.DEBUG)
 
-    for show in showList:
-        if _check_against_names(name, show):
-            logger.log(u"Matched "+name+" in the showlist to the show "+show.name, logger.DEBUG)
-            return show
+    if showList:
+        for show in showList:
+            if _check_against_names(name, show):
+                logger.log(u"Matched "+name+" in the showlist to the show "+show.name, logger.DEBUG)
+                return show
 
     if useTvdb:
         try:
