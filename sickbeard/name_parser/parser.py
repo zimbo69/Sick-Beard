@@ -21,6 +21,7 @@ import os.path
 import re
 import copy
 import regexes
+import threading
 
 import sickbeard
 
@@ -34,6 +35,7 @@ class NameParser(object):
         self.file_name = file_name
         self.compiled_regexes = []
         self._compile_regexes()
+        self.lock = threading.Lock()
 
     def clean_series_name(self, series_name):
         """Cleans up series name by removing any . and _
@@ -182,76 +184,76 @@ class NameParser(object):
             return result
 
     def parse(self, name, fix_scene_numbering=False):
-        
-        name = self._unicodify(name)
-        
-        cached = name_parser_cache.get(name)
-        if cached:
+        with self.lock:
+            name = self._unicodify(name)
+            cached = name_parser_cache.get(name)
+
+            if cached:
+                if fix_scene_numbering:
+                    cached_fixed = copy.copy(cached)
+                    cached_fixed.fix_scene_numbering()
+                    return cached_fixed
+                return cached
+
+            # break it into parts if there are any (dirname, file name, extension)
+            dir_name, file_name = os.path.split(name)
+            ext_match = re.match('(.*)\.\w{3,4}$', file_name)
+            if ext_match and self.file_name:
+                base_file_name = ext_match.group(1)
+            else:
+                base_file_name = file_name
+
+            # use only the direct parent dir
+            dir_name = os.path.basename(dir_name)
+
+            # set up a result to use
+            final_result = ParseResult(name)
+
+            # try parsing the file name
+            file_name_result = self._parse_string(base_file_name)
+
+            # parse the dirname for extra info if needed
+            dir_name_result = self._parse_string(dir_name)
+
+            # build the ParseResult object
+            final_result.air_date = self._combine_results(file_name_result, dir_name_result, 'air_date')
+
+            if not final_result.air_date:
+                final_result.season_number = self._combine_results(file_name_result, dir_name_result, 'season_number')
+                final_result.episode_numbers = self._combine_results(file_name_result, dir_name_result, 'episode_numbers')
+
+            # if the dirname has a release group/show name I believe it over the filename
+            final_result.series_name = self._combine_results(dir_name_result, file_name_result, 'series_name')
+            final_result.extra_info = self._combine_results(dir_name_result, file_name_result, 'extra_info')
+            final_result.release_group = self._combine_results(dir_name_result, file_name_result, 'release_group')
+
+            final_result.which_regex = []
+            if final_result == file_name_result:
+                final_result.which_regex = file_name_result.which_regex
+            elif final_result == dir_name_result:
+                final_result.which_regex = dir_name_result.which_regex
+            else:
+                if file_name_result:
+                    final_result.which_regex += file_name_result.which_regex
+                if dir_name_result:
+                    final_result.which_regex += dir_name_result.which_regex
+
+            # if there's no useful info in it then raise an exception
+            if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
+                raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
+
+            #if fix_scene_numbering:
+            #    final_result.fix_scene_numbering()
+
+            name_parser_cache.add(name, final_result)
+
             if fix_scene_numbering:
-                cached_fixed = copy.copy(cached)
-                cached_fixed.fix_scene_numbering()
-                return cached_fixed
-            return cached
+                final_result_fixed = copy.copy(final_result)
+                final_result_fixed.fix_scene_numbering()
+                return final_result_fixed
 
-        # break it into parts if there are any (dirname, file name, extension)
-        dir_name, file_name = os.path.split(name)
-        ext_match = re.match('(.*)\.\w{3,4}$', file_name)
-        if ext_match and self.file_name:
-            base_file_name = ext_match.group(1)
-        else:
-            base_file_name = file_name
-        
-        # use only the direct parent dir
-        dir_name = os.path.basename(dir_name)
-
-        # set up a result to use
-        final_result = ParseResult(name)
-        
-        # try parsing the file name
-        file_name_result = self._parse_string(base_file_name)
-        
-        # parse the dirname for extra info if needed
-        dir_name_result = self._parse_string(dir_name)
-
-        # build the ParseResult object
-        final_result.air_date = self._combine_results(file_name_result, dir_name_result, 'air_date')
-
-        if not final_result.air_date:
-            final_result.season_number = self._combine_results(file_name_result, dir_name_result, 'season_number')
-            final_result.episode_numbers = self._combine_results(file_name_result, dir_name_result, 'episode_numbers')
-
-        # if the dirname has a release group/show name I believe it over the filename
-        final_result.series_name = self._combine_results(dir_name_result, file_name_result, 'series_name')
-        final_result.extra_info = self._combine_results(dir_name_result, file_name_result, 'extra_info')
-        final_result.release_group = self._combine_results(dir_name_result, file_name_result, 'release_group')
-
-        final_result.which_regex = []
-        if final_result == file_name_result:
-            final_result.which_regex = file_name_result.which_regex
-        elif final_result == dir_name_result:
-            final_result.which_regex = dir_name_result.which_regex
-        else:
-            if file_name_result:
-                final_result.which_regex += file_name_result.which_regex
-            if dir_name_result:
-                final_result.which_regex += dir_name_result.which_regex
-
-        # if there's no useful info in it then raise an exception
-        if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
-            raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
-
-        #if fix_scene_numbering:
-        #    final_result.fix_scene_numbering()
-
-        name_parser_cache.add(name, final_result)
-        
-        if fix_scene_numbering:
-            final_result_fixed = copy.copy(final_result)
-            final_result_fixed.fix_scene_numbering()
-            return final_result_fixed
-
-        # return final result
-        return final_result
+            # return final result
+            return final_result
     
     @classmethod
     def series_name_to_tvdb_id(cls, series_name, check_scene_exceptions=True, check_database=True, check_tvdb=False):

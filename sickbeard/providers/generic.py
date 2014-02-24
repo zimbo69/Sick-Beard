@@ -254,8 +254,8 @@ class GenericProvider:
 
             # parse the file name
             try:
-                myParser = NameParser()
-                parse_result = myParser.parse(title, fix_scene_numbering=True)
+                myParser = NameParser(False)
+                parse_result = myParser.parse(title, True)
             except InvalidNameException:
                 logger.log(u"Unable to parse the filename " + title + " into a valid episode", logger.WARNING)
                 continue
