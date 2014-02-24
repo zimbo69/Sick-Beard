@@ -187,7 +187,7 @@ class NameParser(object):
         cached = name_parser_cache.get(name)
 
         if cached:
-            return cached
+           return cached
 
         # break it into parts if there are any (dirname, file name, extension)
         dir_name, file_name = os.path.split(name)
@@ -236,7 +236,7 @@ class NameParser(object):
         if final_result.season_number == None and not final_result.episode_numbers and final_result.air_date == None and not final_result.series_name:
             raise InvalidNameException("Unable to parse " + name.encode(sickbeard.SYS_ENCODING, 'xmlcharrefreplace'))
 
-        name_parser_cache.add(name, final_result)
+        name_parser_cache.add(name, final_result.fix_scene_numbering())
 
         return final_result
     
