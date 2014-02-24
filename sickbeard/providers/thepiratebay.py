@@ -152,7 +152,7 @@ class ThePirateBayProvider(generic.TorrentProvider):
 
         try:
             myParser = NameParser()
-            parse_result = myParser.parse(fileName, True)
+            parse_result = myParser.parse(fileName).fix_scene_numbering()
         except InvalidNameException:
             return None
         
