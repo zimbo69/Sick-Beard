@@ -671,13 +671,14 @@ class PostProcessor(object):
 
             # now that we've figured out which episode this file is just load it manually
             try:
-                # convert episode from scene numbering to TVDB numbering
-                season, episode = scene_numbering.get_tvdb_numbering(tvdb_id, season, episode)
                 curEp = show_obj.getEpisode(season, episode)
             except exceptions.EpisodeNotFoundException, e:
                 self._log(u"Unable to create episode: " + ex(e), logger.DEBUG)
                 raise exceptions.PostProcessingFailed()
 
+            # convert scene numbered episode to tvdb numbered
+            curEp.convertToTVDB()
+            
             # associate all the episodes together under a single root episode
             if root_ep == None:
                 root_ep = curEp
