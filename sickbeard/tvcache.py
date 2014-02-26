@@ -28,6 +28,7 @@ from sickbeard.common import Quality
 
 from sickbeard import helpers, show_name_helpers
 from sickbeard import name_cache
+from sickbeard.exceptions import MultipleShowObjectsException, ex
 from sickbeard.exceptions import ex, AuthException
 
 try:
@@ -227,7 +228,10 @@ class TVCache():
 
             # if we have only the tvdb_id, use the database
             if tvdb_id:
-                showObj = helpers.findCertainShow(sickbeard.showList, tvdb_id)
+                try:
+                    showObj = helpers.findCertainShow(sickbeard.showList, tvdb_id)
+                except (MultipleShowObjectsException):
+                    showObj = None
                 if showObj:
                     tvrage_id = showObj.tvrid
                     tvdb_lang = showObj.lang
@@ -237,7 +241,10 @@ class TVCache():
 
             # if we have only a tvrage_id then use the database
             elif tvrage_id:
-                showObj = helpers.findCertainTVRageShow(sickbeard.showList, tvrage_id)
+                try:
+                    showObj = helpers.findCertainTVRageShow(sickbeard.showList, tvrage_id)
+                except (MultipleShowObjectsException):
+                    showObj = None
                 if showObj:
                     tvdb_id = showObj.tvdbid
                     tvdb_lang = showObj.lang
@@ -288,7 +295,10 @@ class TVCache():
 
                 # if we found the show then retrieve the show object
                 if tvdb_id:
-                    showObj = helpers.findCertainShow(sickbeard.showList, tvdb_id)
+                    try:
+                        showObj = helpers.findCertainShow(sickbeard.showList, tvdb_id)
+                    except (MultipleShowObjectsException):
+                        showObj = None
                     if showObj:
                         tvrage_id = showObj.tvrid
                         tvdb_lang = showObj.lang
@@ -372,7 +382,10 @@ class TVCache():
                 continue
 
             # get the show object, or if it's not one of our shows then ignore it
-            showObj = helpers.findCertainShow(sickbeard.showList, int(curResult["tvdbid"]))
+            try:
+                showObj = helpers.findCertainShow(sickbeard.showList, int(curResult["tvdbid"]))
+            except (MultipleShowObjectsException):
+                showObj = None
             if not showObj:
                 continue
 
