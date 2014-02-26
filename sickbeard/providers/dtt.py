@@ -140,6 +140,6 @@ class DTTCache(tvcache.TVCache):
     def _parseItem(self, item):
         title, url = self.provider._get_title_and_url(item)
         logger.log(u"Adding item from RSS to cache: "+title, logger.DEBUG)
-        self._addCacheEntry(title, url)
+        return self._addCacheEntry(title, url)
 
 provider = DTTProvider()

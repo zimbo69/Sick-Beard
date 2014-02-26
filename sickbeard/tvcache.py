@@ -126,8 +126,15 @@ class TVCache():
                     logger.log(u"Resulting XML from " + self.provider.name + " isn't RSS, not parsing it", logger.ERROR)
                     return []
                 
+                cl = []
                 for item in items:
-                    self._parseItem(item)
+                    ci = self._parseItem(item)
+                    if ci is not None:
+                        cl.append(ci)
+
+                if len(cl) > 0:
+                    myDB = self._getDB()
+                    myDB.mass_action(cl)
     
             else:
                 raise AuthException(u"Your authentication credentials for " + self.provider.name + " are incorrect, check your config")
@@ -152,11 +159,11 @@ class TVCache():
             url = self._translateLinkURL(url)
             
             logger.log(u"Adding item from RSS to cache: " + title, logger.DEBUG)
-            self._addCacheEntry(title, url)
+            return self._addCacheEntry(title, url)
         
         else:
              logger.log(u"The XML returned from the " + self.provider.name + " feed is incomplete, this result is unusable", logger.DEBUG)
-             return
+             return None
 
 
     def _getLastUpdate(self):
@@ -207,11 +214,11 @@ class TVCache():
 
         if not parse_result:
             logger.log(u"Giving up because I'm unable to parse this name: "+name, logger.DEBUG)
-            return False
+            return None
 
         if not parse_result.series_name:
             logger.log(u"No series name retrieved from " + name + ", unable to cache it", logger.DEBUG)
-            return False
+            return None
 
         tvdb_lang = None
 
@@ -308,10 +315,10 @@ class TVCache():
                 episodes = [int(epObj["episodenumber"])]
             except tvdb_exceptions.tvdb_episodenotfound:
                 logger.log(u"Unable to find episode with date " + str(parse_result.air_date) + " for show " + parse_result.series_name+", skipping", logger.WARNING)
-                return False
+                return None
             except tvdb_exceptions.tvdb_error, e:
                 logger.log(u"Unable to contact TVDB: " + ex(e), logger.WARNING)
-                return False
+                return None
 
         episodeText = "|"+"|".join(map(str, episodes))+"|"
 
@@ -324,8 +331,8 @@ class TVCache():
         if not isinstance(name, unicode):
             name = unicode(name, 'utf-8')
 
-        myDB.action("INSERT INTO [" + self.providerID + "] (name, season, episodes, tvrid, tvdbid, url, time, quality) VALUES (?,?,?,?,?,?,?,?)",
-                    [name, season, episodeText, tvrage_id, tvdb_id, url, curTimestamp, quality])
+        return ["INSERT INTO [" + self.providerID + "] (name, season, episodes, tvrid, tvdbid, url, time, quality) VALUES (?,?,?,?,?,?,?,?)",
+                    [name, season, episodeText, tvrage_id, tvdb_id, url, curTimestamp, quality]]
 
 
     def searchCache(self, episode, manualSearch=False):

@@ -336,8 +336,15 @@ class BTNCache(tvcache.TVCache):
 
             if self._checkAuth(data):
                 # By now we know we've got data and no auth errors, all we need to do is put it in the database
+                cl = []
                 for item in data:
-                    self._parseItem(item)
+                    ci = self._parseItem(item)
+                    if ci is not None:
+                        cl.append(ci)
+        
+                if len(cl) > 0:
+                    myDB = self._getDB()
+                    myDB.mass_action(cl)
 
             else:
                 raise AuthException("Your authentication info for " + self.provider.name + " is incorrect, check your config")
@@ -368,10 +375,10 @@ class BTNCache(tvcache.TVCache):
 
         if title and url:
             logger.log(u"Adding item to results: " + title, logger.DEBUG)
-            self._addCacheEntry(title, url)
+            return self._addCacheEntry(title, url)
         else:
             logger.log(u"The data returned from the " + self.provider.name + " is incomplete, this result is unusable", logger.ERROR)
-            return
+            return None
 
     def _checkAuth(self, data):
         return self.provider._checkAuthFromData(data)

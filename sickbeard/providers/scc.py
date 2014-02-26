@@ -287,19 +287,26 @@ class SCCCache(tvcache.TVCache):
         logger.log(u"Clearing " + self.provider.name + " cache and updating with new information")
         self._clearCache()
 
+        cl = []
         for result in rss_results:
             item = (result[0], result[1])
-            self._parseItem(item)
+            ci = self._parseItem(item)
+            if ci is not None:
+                cl.append(ci)
+
+        if len(cl) > 0:
+            myDB = self._getDB()
+            myDB.mass_action(cl)
 
     def _parseItem(self, item):
 
         (title, url) = item
 
         if not title or not url:
-            return
+            return None
 
         logger.log(u"Adding item to cache: " + title, logger.DEBUG)
 
-        self._addCacheEntry(title, url)
+        return self._addCacheEntry(title, url)
 
 provider = SCCProvider()
