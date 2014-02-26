@@ -151,8 +151,6 @@ def revertEpisodes(show_obj, season, episodes):
 
                 ep_obj.saveToDB()
 
-    return log_str
-
 def markFailed(show_obj, season, episodes):
     log_str = u""
 
@@ -213,34 +211,37 @@ def trimHistory():
     myDB.action("DELETE FROM history WHERE date < " + str((datetime.datetime.today() - datetime.timedelta(days=30)).strftime(dateFormat)))
 
 
-def findRelease(showtvdbid, season, episode):
+def findRelease(show, season, episode):
     """
-    Find release in history by show ID, season, and episode.
+    Find releases in history by show ID and season.
     Return None for release if multiple found or no release found.
     """
+    if not show: return (None, None, None)
+    if not season: return (None, None, None)
+
     release = None
     provider = None
 
     myDB = db.DBConnection("failed.db")
 
     # Clear old snatches for this release if any exist
-    myDB.action("DELETE FROM history WHERE showtvdbid=" + str(showtvdbid) + " AND season=" + str(season) + " AND episode=" + str(episode) + " AND date < (SELECT max(date) FROM history WHERE showtvdbid=" + str(showtvdbid) + " AND season=" + str(season) + " AND episode=" + str(episode) + ")")
+    myDB.action("DELETE FROM history WHERE showtvdbid=" + str(show.tvdbid) + " AND season=" + str(season) + " AND episode=" + str(episode) + " AND date < (SELECT max(date) FROM history WHERE showtvdbid=" + str(show.tvdbid) + " AND season=" + str(season) + " AND episode=" + str(episode) + ")")
 
     # Search for release in snatch history
-    sql_results = myDB.select("SELECT release, provider, date FROM history WHERE showtvdbid=? AND season=? AND episode=?",[showtvdbid, season, episode])
+    results = myDB.select("SELECT release, provider, date FROM history WHERE showtvdbid=? AND season=? AND episode=?",[show.tvdbid, season, episode])
 
-    if sql_results:
-        release = str(sql_results[0]["release"])
-        provider = str(sql_results[0]["provider"])
-        date = sql_results[0]["date"]
+    for result in results:
+        release = str(result["release"])
+        provider = str(result["provider"])
+        date = result["date"]
 
         # Clear any incomplete snatch records for this release if any exist
         myDB.action("DELETE FROM history WHERE release=? AND date!=?",[release, date])
 
-        # Return release name found
-        logger.log(u"Release found: (%s)" % (sql_results[0]["release"]), logger.DEBUG)
+        # Found a previously failed release
+        logger.log(u"Failed release found for season (%s): (%s)" % (season, result["release"]), logger.DEBUG)
         return (release, provider)
 
     # Release was not found
-    logger.log(u"Release not found: (%s, %s, %s)" % (showtvdbid, season, episode), logger.DEBUG)
+    logger.log(u"No releases found for season (%s) of (%s)" % (season, show.tvdbid), logger.DEBUG)
     return (release, provider)

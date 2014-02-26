@@ -3579,9 +3579,8 @@ class Home:
             else:
                 return _genericMessage("Error", errMsg)
 
-        segment_list = []
-        fail_segment = {}
-        
+        segment_list = {}
+
         if eps != None:
 
             for curEp in eps.split('|'):
@@ -3598,12 +3597,9 @@ class Home:
                 if int(status) in (WANTED, FAILED):
                     # figure out what segment the episode is in and remember it so we can backlog it
                     if epObj.show.air_by_date:
-                        ep_segment = str(epObj.airdate)[:7]
+                        segment_list.setdefault(str(epObj.airdate)[:7],[]).append(epObj.episode)
                     else:
-                        ep_segment = epObj.season
-
-                    if ep_segment not in segment_list:
-                        segment_list.append(ep_segment)
+                        segment_list.setdefault(epObj.season,[]).append(epObj.episode)
 
                 with epObj.lock:
                     # don't let them mess up UNAIRED episodes
@@ -3619,18 +3615,12 @@ class Home:
                         logger.log(u"Refusing to change status of " + curEp + " to FAILED because it's not SNATCHED/DOWNLOADED", logger.ERROR)
                         continue
                    
-                    if int(status) == FAILED:
-                        quality = Quality.splitCompositeStatus(epObj.status)[1]
-                        epObj.status = Quality.compositeStatus(FAILED, quality)
-                        epObj.saveToDB()
-                        continue
-                   
                     epObj.status = int(status)
                     epObj.saveToDB()
                 
         if int(status) == WANTED:           
             msg = "Backlog was automatically started for the following seasons of <b>" + showObj.name + "</b>:<br /><ul>"
-            for cur_segment in segment_list:
+            for cur_segment, cur_episodes in segment_list.iteritems():
                 msg += "<li>Season " + str(cur_segment) + "</li>"
                 logger.log(u"Sending backlog for " + showObj.name + " season " + str(cur_segment) + " because some eps were set to wanted")
                 cur_backlog_queue_item = search_queue.BacklogQueueItem(showObj, cur_segment)
@@ -3642,10 +3632,10 @@ class Home:
 
         if int(status) == FAILED:
             msg = "Retrying Search was automatically started for the following season of <b>" + showObj.name + "</b>:<br />"
-            for cur_segment in segment_list:
+            for cur_segment, cur_episodes in segment_list.iteritems():
                 msg += "<li>Season " + str(cur_segment) + "</li>"
                 logger.log(u"Retrying Search for " + showObj.name + " season " + str(cur_segment) + " because some eps were set to failed")
-                cur_failed_queue_item = search_queue.FailedQueueItem(showObj, cur_segment)
+                cur_failed_queue_item = search_queue.FailedQueueItem(showObj, cur_segment, cur_episodes)
                 sickbeard.searchQueueScheduler.action.add_item(cur_failed_queue_item) # @UndefinedVariable
             msg += "</ul>"
 
@@ -3845,19 +3835,20 @@ class Home:
         
     @cherrypy.expose
     def retryEpisode(self, show, season, episode):
-        
+
         # retrieve the episode object and fail if we can't get one
         ep_obj = _getEpisode(show, season, episode)
         if isinstance(ep_obj, str):
             return json.dumps({'result': 'failure'})
 
-        with ep_obj.lock:
-            quality = Quality.splitCompositeStatus(ep_obj.status)[1]
-            ep_obj.status = Quality.compositeStatus(FAILED, quality)
-            ep_obj.saveToDB()
+        # figure out what segment the episode is in and remember it so we can backlog it
+        if ep_obj.show.air_by_date:
+            segment = str(ep_obj.airdate)[:7]
+        else:
+            segment = ep_obj.season
 
         # make a queue item for it and put it on the queue
-        ep_queue_item = search_queue.FailedQueueItem(ep_obj.show, [], ep_obj)
+        ep_queue_item = search_queue.FailedQueueItem(ep_obj.show, segment, [ep_obj.episode])
         sickbeard.searchQueueScheduler.action.add_item(ep_queue_item) # @UndefinedVariable
 
         # wait until the queue item tells us whether it worked or not

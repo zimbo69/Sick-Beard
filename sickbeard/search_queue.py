@@ -238,82 +238,56 @@ class BacklogQueueItem(generic_queue.QueueItem):
 
 class FailedQueueItem(generic_queue.QueueItem):
 
-    def __init__(self, show, segment=None, ep_obj=None):
+    def __init__(self, show, segment, episodes):
         generic_queue.QueueItem.__init__(self, 'Retry', MANUAL_SEARCH)
         self.priority = generic_queue.QueuePriorities.HIGH
         self.thread_name = 'RETRY-' + str(show.tvdbid)
 
         self.show = show
         self.segment = segment
-        self.ep_obj = ep_obj
+        self.episodes = episodes
         
         self.success = None
 
     def execute(self):
         generic_queue.QueueItem.execute(self)
 
-        if self.ep_obj:
-
-            release, provider = failed_history.findRelease(self.show.tvdbid, self.ep_obj.season, self.ep_obj.episode)
-
-            if release is not None:
-                logger.log(u"Marking snatched release " + release + " from provider " + provider + " FAILED")
-                failed_history.revertEpisodes(self.show, self.ep_obj.season, [self.ep_obj.episode])
+        for episode in self.episodes:
+            (release, provider) = failed_history.findRelease(self.show, self.segment, episode)
+            if release:
+                logger.log(u"Marking release as bad: " + release)
+                failed_history.markFailed(self.show, self.segment, [episode])
                 failed_history.logFailed(release)
-                history.logFailed(self.show.tvdbid, self.ep_obj.season, self.ep_obj.episode, common.Quality.NONE, release, provider)
+                history.logFailed(self.show.tvdbid, self.segment, episode, common.Quality.NONE, release, provider)
 
-            foundEpisode = search.findEpisode(self.ep_obj, manualSearch=True)
-            result = False
+            failed_history.revertEpisodes(self.show, self.segment, [episode])
 
-            if not foundEpisode:
-                ui.notifications.message('No downloads were found', "Couldn't find a download for <i>%s</i>" % self.ep_obj.prettyName())
-                logger.log(u"Unable to find a download for " + self.ep_obj.prettyName())
-            else:
-                # just use the first result for now
-                logger.log(u"Downloading episode from " + foundEpisode.url)
-                result = search.snatchEpisode(foundEpisode)
-                providerModule = foundEpisode.provider
-                if not result:
-                    ui.notifications.error('Error while attempting to snatch ' + foundEpisode.name+', check your logs')
-                elif providerModule == None:
-                    ui.notifications.error('Provider is configured incorrectly, unable to download')
-    
-            self.success = result
-
-        else:    
-    
-            results = []
-            myDB = db.DBConnection()
-    
-            if not self.show.air_by_date:
-                sqlResults = myDB.select("SELECT episode FROM tv_episodes WHERE showid = ? AND season = ? AND status IN (" + ",".join([str(x) for x in common.Quality.FAILED]) + ")", [self.show.tvdbid, self.segment])
-            else:
-                segment_year, segment_month = map(int, self.segment.split('-'))
-                min_date = datetime.date(segment_year, segment_month, 1)
-    
-                # it's easier to just hard code this than to worry about rolling the year over or making a month length map
-                if segment_month == 12:
-                    max_date = datetime.date(segment_year, 12, 31)
+        if len(self.episodes) == 1:
+            for episode in self.episodes:
+                # Single failed episode search
+                epObj = self.show.getEpisode(int(self.segment), int(episode))
+                foundEpisode = search.findEpisode(epObj, manualSearch=True)
+                if not foundEpisode:
+                    ui.notifications.message('No downloads were found', "Couldn't find a download for <i>%s</i>" % epObj.prettyName())
+                    logger.log(u"Unable to find a download for " + epObj.prettyName())
                 else:
-                    max_date = datetime.date(segment_year, segment_month + 1, 1) - datetime.timedelta(days=1)
-    
-                sqlResults = myDB.select("SELECT episode FROM tv_episodes WHERE showid = ? AND airdate >= ? AND airdate <= ? AND status IN (" + ",".join([str(x) for x in common.Quality.FAILED]) + ")",
-                                            [self.show.tvdbid, min_date.toordinal(), max_date.toordinal()])
-            
-            for result in sqlResults:
-                release, provider = failed_history.findRelease(self.show.tvdbid, self.segment, result["episode"])
+                    # just use the first result for now
+                    logger.log(u"Downloading episode from " + foundEpisode.url)
+                    result = search.snatchEpisode(foundEpisode)
+                    providerModule = foundEpisode.provider
+                    if not result:
+                        ui.notifications.error('Error while attempting to snatch ' + foundEpisode.name+', check your logs')
+                    elif providerModule == None:
+                        ui.notifications.error('Provider is configured incorrectly, unable to download')
 
-                if release is not None:
-                    logger.log(u"Marking snatched release " + release + " from provider " + provider + " FAILED")
-                    failed_history.revertEpisodes(self.show, self.segment, [result["episode"]])
-                    failed_history.logFailed(release)
-                    history.logFailed(self.show.tvdbid, self.segment, result["episode"], common.Quality.NONE, release, provider)
-
-                results = search.findSeason(self.show, self.segment)
+                    self.success = result
+        else:
+            # Multiple failed episode search
+            results = search.findSeason(self.show, self.segment)
 
             # download whatever we find
             for curResult in results:
                 search.snatchEpisode(curResult)
                 time.sleep(5)
 
-        self.finish()
+            self.finish()
