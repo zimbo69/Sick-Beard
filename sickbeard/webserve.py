@@ -1732,7 +1732,7 @@ class ConfigNotifications:
         sickbeard.EMAIL_NOTIFY_ONDOWNLOAD = config.checkbox_to_value(email_notify_ondownload)
         sickbeard.EMAIL_NOTIFY_ONSUBTITLEDOWNLOAD = config.checkbox_to_value(email_notify_onsubtitledownload)
         sickbeard.EMAIL_HOST = config.clean_host(email_host)
-        sickbeard.EMAIL_PORT = email_port
+        sickbeard.EMAIL_PORT = config.to_int(email_port, 25)
         sickbeard.EMAIL_FROM = email_from
         sickbeard.EMAIL_TLS = config.checkbox_to_value(email_tls)
         sickbeard.EMAIL_USER = email_user
@@ -1812,7 +1812,7 @@ class ConfigSubtitles:
         sickbeard.SUBTITLES_LANGUAGES = [lang.alpha2 for lang in subtitles.isValidLanguage(subtitles_languages.replace(' ', '').split(','))] if subtitles_languages != ''  else ''
         sickbeard.SUBTITLES_DIR = subtitles_dir
         sickbeard.SUBTITLES_HISTORY = config.checkbox_to_value(subtitles_history)
-        sickbeard.SUBTITLES_FINDER_FREQUENCY = subtitles_finder_frequency
+        sickbeard.SUBTITLES_FINDER_FREQUENCY = config.to_int(subtitles_finder_frequency, 1)
 
         # Subtitles services
         services_str_list = service_order.split()
