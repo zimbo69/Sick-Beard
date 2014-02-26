@@ -28,7 +28,6 @@ import datetime
 import random
 import locale
 import logging
-import pprint
 
 from Cheetah.Template import Template
 import cherrypy.lib
@@ -1264,7 +1263,7 @@ class ConfigPostProcessing:
             testing = RarFile(rar_path).read_files('*test.txt')
             if testing[0][1]=='This is only a test.':
                 return 'supported'
-            logger.log(u'Rar Not Supported: Can not read the content of test file', Logger.ERROR)
+            logger.log(u'Rar Not Supported: Can not read the content of test file', logger.ERROR)
             return 'not supported'
         except Exception, e:
             logger.log(u'Rar Not Supported: ' + ex(e), logger.ERROR)
@@ -1732,7 +1731,7 @@ class ConfigNotifications:
         sickbeard.EMAIL_NOTIFY_ONDOWNLOAD = config.checkbox_to_value(email_notify_ondownload)
         sickbeard.EMAIL_NOTIFY_ONSUBTITLEDOWNLOAD = config.checkbox_to_value(email_notify_onsubtitledownload)
         sickbeard.EMAIL_HOST = config.clean_host(email_host)
-        sickbeard.EMAIL_PORT = config.to_int(email_port, 25)
+        sickbeard.EMAIL_PORT = config.to_int(email_port, default=25)
         sickbeard.EMAIL_FROM = email_from
         sickbeard.EMAIL_TLS = config.checkbox_to_value(email_tls)
         sickbeard.EMAIL_USER = email_user
@@ -1812,7 +1811,7 @@ class ConfigSubtitles:
         sickbeard.SUBTITLES_LANGUAGES = [lang.alpha2 for lang in subtitles.isValidLanguage(subtitles_languages.replace(' ', '').split(','))] if subtitles_languages != ''  else ''
         sickbeard.SUBTITLES_DIR = subtitles_dir
         sickbeard.SUBTITLES_HISTORY = config.checkbox_to_value(subtitles_history)
-        sickbeard.SUBTITLES_FINDER_FREQUENCY = config.to_int(subtitles_finder_frequency, 1)
+        sickbeard.SUBTITLES_FINDER_FREQUENCY = config.to_int(subtitles_finder_frequency, default=1)
 
         # Subtitles services
         services_str_list = service_order.split()
@@ -2790,8 +2789,6 @@ class Home:
         t.all_scene_exceptions = get_scene_exceptions(showObj.tvdbid)
         t.scene_numbering = get_scene_numbering_for_show(showObj.tvdbid)
         t.xem_numbering = get_xem_numbering_for_show(showObj.tvdbid)
-        
-        #logger.log(u'Home.displayShow with t = ' + pprint.pformat(vars(t)) , logger.DEBUG)
 
         return _munge(t)
 
@@ -3309,7 +3306,6 @@ class Home:
         else:
             logger.log(u"setEpisodeSceneNumbering for %s from %sx%s to %sx%s" % 
                        (show, forSeason, forEpisode, sceneSeason, sceneEpisode), logger.DEBUG)
-            #logger.log(u'episode is' + pprint.pformat(vars(ep_obj)), logger.DEBUG)
             
             forSeason = int(forSeason)
             forEpisode = int(forEpisode)
