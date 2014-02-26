@@ -182,7 +182,7 @@ class KATProvider(generic.TorrentProvider):
         return [search_string]
 
     def _get_episode_search_strings(self, ep_obj, add_string=''):
-
+       
         search_string = {'Episode': []}
 
         if not ep_obj:
@@ -355,7 +355,7 @@ class KATProvider(generic.TorrentProvider):
         
         for sqlShow in sqlResults:
             curShow = helpers.findCertainShow(sickbeard.showList, int(sqlShow["showid"]))
-            curEp = curShow.getEpisode(int(sqlShow["season"]), int(sqlShow["episode"]))
+            curEp = curShow.getEpisode(int(sqlShow["season"]),int(sqlShow["episode"]))
             searchString = self._get_episode_search_strings(curEp, add_string='PROPER|REPACK')
 
             for item in self._doSearch(searchString[0]):

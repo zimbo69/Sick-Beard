@@ -21,7 +21,6 @@ import urllib, urllib2, urlparse
 import sys
 import os
 import datetime
-import copy
 
 import sickbeard
 import generic
@@ -365,6 +364,7 @@ class ThePirateBayProvider(generic.TorrentProvider):
                 results.append(classes.Proper(title, url, datetime.datetime.today()))
 
         return results
+
 
 class ThePirateBayCache(tvcache.TVCache):
 

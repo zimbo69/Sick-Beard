@@ -31,6 +31,7 @@ from sickbeard.exceptions import ex
 from lib.tvdb_api import tvdb_api, tvdb_exceptions
 from sickbeard import scene_numbering
 
+
 class TVRage:
 
     def __init__(self, show):
@@ -331,7 +332,7 @@ class TVRage:
             logger.log(u"Unable to figure out the time from the TVRage data " + ep_info[2])
             return None
 
-        toReturn = {'season': int(num_info[0]), 'episode': int(num_info[1]), 'name': ep_info[1], 'airdate': air_date}
+        toReturn = {'season': int(num_info[0]), 'episode': num_info[1], 'name': ep_info[1], 'airdate': air_date}
 
         logger.log(u"Result of parse: " + str(toReturn), logger.DEBUG)
 

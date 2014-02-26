@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 #encoding:utf-8
 #author:dbr/Ben
 #project:tvdb_api
@@ -827,6 +827,7 @@ class Tvdb:
                 seas_no = int(cur_ep.find('SeasonNumber').text)
                 ep_no = int(cur_ep.find('EpisodeNumber').text)
 
+<<<<<<< HEAD
             useDVD = False
 
             if (self.config['dvdorder']):
@@ -844,6 +845,8 @@ class Tvdb:
                 seas_no = int(cur_ep.find('SeasonNumber').text)
                 ep_no = int(cur_ep.find('EpisodeNumber').text)
 
+=======
+>>>>>>> refs/remotes/mr-orange/ThePirateBay
             for cur_item in cur_ep.getchildren():
                 tag = cur_item.tag.lower()
                 value = cur_item.text
