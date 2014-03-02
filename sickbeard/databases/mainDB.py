@@ -473,8 +473,7 @@ class AddDvdOrderOption(AddLastProperSearch):
 
     def execute(self):
         backupDatabase(20)
-        
-    def execute(self):
+
         self.connection.action("ALTER TABLE tv_shows ADD dvdorder NUMERIC")
         self.incDBVersion()
 
