@@ -478,7 +478,7 @@ class AddDvdOrderOption(AddLastProperSearch):
         self.connection.action("ALTER TABLE tv_shows ADD dvdorder NUMERIC")
         self.incDBVersion()
 
-class AddIndicesToTvEpisodes(AddLastUpdateTVDB):
+class AddIndicesToTvEpisodes(AddDvdOrderOption):
     """ Adding indices to tv episodes """
 
     def test(self):
