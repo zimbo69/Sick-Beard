@@ -244,4 +244,3 @@ def findRelease(show, season, episode):
 
     # Release was not found
     logger.log(u"No releases found for season (%s) of (%s)" % (season, show.tvdbid), logger.DEBUG)
-    return (release, provider)

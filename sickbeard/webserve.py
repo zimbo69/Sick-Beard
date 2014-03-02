@@ -958,47 +958,6 @@ class ConfigGeneral:
         config.change_VERSION_NOTIFY(config.checkbox_to_value(version_notify))
         # sickbeard.LOG_DIR is set in config.change_LOG_DIR()
 
-#        if web_ipv6 == "on":
-#            web_ipv6 = 1
-#        else:
-#            web_ipv6 = 0
-#
-#        if web_log == "on":
-#            web_log = 1
-#        else:
-#            web_log = 0
-#            
-#        if encryption_version == "on":
-#            # Update to the last encryption_version available:
-#            encryption_version = 1
-#        else:
-#            encryption_version = 0
-#
-#        if update_shows_on_start == "on":
-#            update_shows_on_start = 1
-#        else:
-#            update_shows_on_start = 0
-#
-#        if sort_article == "on":
-#            sort_article = 1
-#        else:
-#            sort_article = 0
-#
-#        if launch_browser == "on":
-#            launch_browser = 1
-#        else:
-#            launch_browser = 0
-#
-#        if version_notify == "on":
-#            version_notify = 1
-#        else:
-#            version_notify = 0
-#            
-#        if calendar_unprotected == "on":
-#            calendar_unprotected = 1
-#        else:
-#            calendar_unprotected = 0
-
         sickbeard.UPDATE_SHOWS_ON_START = config.checkbox_to_value(update_shows_on_start)
         sickbeard.LAUNCH_BROWSER = config.checkbox_to_value(launch_browser)
         sickbeard.SORT_ARTICLE = config.checkbox_to_value(sort_article)
@@ -1106,7 +1065,7 @@ class ConfigSearch:
         sickbeard.NZBGET_USERNAME = nzbget_username
         sickbeard.NZBGET_PASSWORD = nzbget_password
         sickbeard.NZBGET_CATEGORY = nzbget_category
-        sickbeard.NZBGET_HOST = config.clean_url(nzbget_host)
+        sickbeard.NZBGET_HOST = config.clean_host(nzbget_host)
 
         sickbeard.TORRENT_USERNAME = torrent_username
         sickbeard.TORRENT_PASSWORD = torrent_password
@@ -1172,7 +1131,7 @@ class ConfigPostProcessing:
         sickbeard.EXTRA_SCRIPTS = [x.strip() for x in extra_scripts.split('|') if x.strip()]
         sickbeard.RENAME_EPISODES = config.checkbox_to_value(rename_episodes)
         sickbeard.MOVE_ASSOCIATED_FILES = config.checkbox_to_value(move_associated_files)
-        sickbeard.NAMING_CUSTOM_ABD = naming_custom_abd
+        sickbeard.NAMING_CUSTOM_ABD = config.checkbox_to_value(naming_custom_abd)
         sickbeard.NAMING_STRIP_YEAR = config.checkbox_to_value(naming_strip_year)
         sickbeard.USE_FAILED_DOWNLOADS = config.checkbox_to_value(use_failed_downloads)
         sickbeard.DELETE_FAILED = config.checkbox_to_value(delete_failed)
@@ -2307,9 +2266,8 @@ class ErrorLogs:
 
         data = []
         if os.path.isfile(logger.sb_log_instance.log_file_path):
-            f = ek.ek(open, logger.sb_log_instance.log_file_path)
-            data = f.readlines()
-            f.close()
+            with ek.ek(open, logger.sb_log_instance.log_file_path) as f:
+                data = f.readlines()
 
         regex = "^(\d\d\d\d)\-(\d\d)\-(\d\d)\s*(\d\d)\:(\d\d):(\d\d)\s*([A-Z]+)\s*(.+?)\s*\:\:\s*(.*)$"
 

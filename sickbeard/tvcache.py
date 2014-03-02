@@ -341,8 +341,8 @@ class TVCache():
         if not isinstance(name, unicode):
             name = unicode(name, 'utf-8')
 
-        return ["INSERT INTO [" + self.providerID + "] (name, season, episodes, tvrid, tvdbid, url, time, quality) VALUES (?,?,?,?,?,?,?,?)",
-                    [name, season, episodeText, tvrage_id, tvdb_id, url, curTimestamp, quality]]
+        myDB.action("INSERT INTO [" + self.providerID + "] (name, season, episodes, tvrid, tvdbid, url, time, quality) VALUES (?,?,?,?,?,?,?,?)",
+                    [name, season, episodeText, tvrage_id, tvdb_id, url, curTimestamp, quality])
 
 
     def searchCache(self, episode, manualSearch=False):
