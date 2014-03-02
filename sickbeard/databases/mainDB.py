@@ -469,12 +469,17 @@ class AddLastProperSearch(AddLastUpdateTVDB):
 
 class AddDvdOrderOption(AddLastProperSearch):
     def test(self):
-        return self.checkDBVersion() >= 20
+        return self.hasColumn("tv_shows", "dvdorder")
 
     def execute(self):
-        backupDatabase(20)
+
+        backupDatabase(self.checkDBVersion())
 
         self.connection.action("ALTER TABLE tv_shows ADD dvdorder NUMERIC")
+
+        if self.checkDBVersion() >= 20:
+            return
+        
         self.incDBVersion()
 
 class AddIndicesToTvEpisodes(AddDvdOrderOption):
