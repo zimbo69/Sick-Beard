@@ -30,6 +30,7 @@ except ImportError:
 from sickbeard import logger
 from sickbeard import db
 from sickbeard.helpers import getURL
+from sickbeard.exceptions import ex
 
 MAX_XEM_AGE_SECS = 86400 # 1 day
 
@@ -255,7 +256,7 @@ def _xem_refresh(tvdb_id):
         else:
             logger.log(u"Empty lookup result - no XEM data for show %s" % (tvdb_id,), logger.MESSAGE)
     except Exception, e:
-        logger.log(u"Exception while refreshing XEM data for show " + tvdb_id + ": " + e, logger.WARNING)
+        logger.log(u"Exception while refreshing XEM data for show " + str(tvdb_id) + ": " + ex(e), logger.WARNING)
         logger.log(traceback.format_exc(), logger.DEBUG)
         return None
     
