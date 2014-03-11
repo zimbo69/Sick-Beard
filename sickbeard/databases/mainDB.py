@@ -114,7 +114,7 @@ class InitialSchema (db.SchemaUpgrade):
                 "CREATE INDEX idx_tv_episodes_showid_airdate ON tv_episodes(showid,airdate);",
                 "CREATE INDEX idx_showid ON tv_episodes (showid);",
                 "CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);",
-                "INSERT INTO db_version (db_version) VALUES (20);"
+                "INSERT INTO db_version (db_version) VALUES (18);"
                 ]
             for query in queries:
                 self.connection.action(query)
@@ -469,17 +469,13 @@ class AddLastProperSearch(AddLastUpdateTVDB):
 
 class AddDvdOrderOption(AddLastProperSearch):
     def test(self):
-        return self.hasColumn("tv_shows", "dvdorder")
+        return self.checkDBVersion() >= 20
 
     def execute(self):
-
-        backupDatabase(self.checkDBVersion())
+        backupDatabase(20)
 
         self.connection.action("ALTER TABLE tv_shows ADD dvdorder NUMERIC")
 
-        if self.checkDBVersion() >= 20:
-            return
-        
         self.incDBVersion()
 
 class AddIndicesToTvEpisodes(AddDvdOrderOption):
