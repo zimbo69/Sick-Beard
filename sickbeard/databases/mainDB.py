@@ -114,7 +114,7 @@ class InitialSchema (db.SchemaUpgrade):
                 "CREATE INDEX idx_tv_episodes_showid_airdate ON tv_episodes(showid,airdate);",
                 "CREATE INDEX idx_showid ON tv_episodes (showid);",
                 "CREATE UNIQUE INDEX idx_tvdb_id ON tv_shows (tvdb_id);",
-                "INSERT INTO db_version (db_version) VALUES (21);"
+                "INSERT INTO db_version (db_version) VALUES (20);"
                 ]
             for query in queries:
                 self.connection.action(query)
