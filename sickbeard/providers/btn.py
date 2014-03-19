@@ -249,7 +249,7 @@ class BTNProvider(generic.TorrentProvider):
         elif ep_obj.show.tvrid:
             search_params['tvrage'] = ep_obj.show.rid
         else:
-            search_params['series'] = sanitizeSceneName(ep_obj.show_name)
+            search_params['series'] = sanitizeSceneName(ep_obj.show.name)
 
         if ep_obj.show.air_by_date:
             date_str = str(ep_obj.airdate)

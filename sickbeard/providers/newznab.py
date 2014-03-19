@@ -108,7 +108,7 @@ class NewznabProvider(generic.NZBProvider):
                 else:
                     cur_params['q'] = season.replace('-', '.')
             else:
-                cur_params['season'] = str(season)
+                cur_params['season'] = season
 
             # hack to only add a single result if it's a rageid search
             if not ('rid' in cur_params and to_return):
