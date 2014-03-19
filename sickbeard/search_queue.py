@@ -26,6 +26,7 @@ from sickbeard import db, logger, common, exceptions, helpers
 from sickbeard import generic_queue
 from sickbeard import search, failed_history, history
 from sickbeard import ui
+from sickbeard.common import Quality
 
 BACKLOG_SEARCH = 10
 RSS_SEARCH = 20
@@ -238,56 +239,42 @@ class BacklogQueueItem(generic_queue.QueueItem):
 
 class FailedQueueItem(generic_queue.QueueItem):
 
-    def __init__(self, show, segment, episodes):
+    def __init__(self, show, segment):
         generic_queue.QueueItem.__init__(self, 'Retry', MANUAL_SEARCH)
         self.priority = generic_queue.QueuePriorities.HIGH
         self.thread_name = 'RETRY-' + str(show.tvdbid)
 
         self.show = show
         self.segment = segment
-        self.episodes = episodes
-        
+
         self.success = None
 
     def execute(self):
         generic_queue.QueueItem.execute(self)
 
-        for episode in self.episodes:
-            (release, provider) = failed_history.findRelease(self.show, self.segment, episode)
+        for season, episode in self.segment.iteritems():
+            epObj = self.show.getEpisode(season, episode)
+
+            (release, provider) = failed_history.findRelease(self.show, season, episode)
             if release:
                 logger.log(u"Marking release as bad: " + release)
-                failed_history.markFailed(self.show, self.segment, [episode])
+                failed_history.markFailed(self.show, season, episode)
                 failed_history.logFailed(release)
-                history.logFailed(self.show.tvdbid, self.segment, episode, common.Quality.NONE, release, provider)
+                history.logFailed(self.show.indexerid, season, episode, epObj.status, release, provider)
 
-            failed_history.revertEpisodes(self.show, self.segment, [episode])
+            failed_history.revertEpisode(self.show, season, episode)
 
-        if len(self.episodes) == 1:
-            for episode in self.episodes:
-                # Single failed episode search
-                epObj = self.show.getEpisode(int(self.segment), int(episode))
-                foundEpisode = search.findEpisode(epObj, manualSearch=True)
-                if not foundEpisode:
-                    ui.notifications.message('No downloads were found', "Couldn't find a download for <i>%s</i>" % epObj.prettyName())
-                    logger.log(u"Unable to find a download for " + epObj.prettyName())
-                else:
-                    # just use the first result for now
-                    logger.log(u"Downloading episode from " + foundEpisode.url)
-                    result = search.snatchEpisode(foundEpisode)
-                    providerModule = foundEpisode.provider
-                    if not result:
-                        ui.notifications.error('Error while attempting to snatch ' + foundEpisode.name+', check your logs')
-                    elif providerModule == None:
-                        ui.notifications.error('Provider is configured incorrectly, unable to download')
+        for season, episode in self.segment.iteritems():
+            epObj = self.show.getEpisode(season, episode)
 
-                    self.success = result
-        else:
-            # Multiple failed episode search
-            results = search.findSeason(self.show, self.segment)
+            if self.show.air_by_date:
+                results = search.findSeason(self.show, str(epObj.airdate)[:7])
+            else:
+                results = search.findSeason(self.show, season)
 
             # download whatever we find
             for curResult in results:
-                search.snatchEpisode(curResult)
+                self.success = search.snatchEpisode(curResult)
                 time.sleep(5)
 
-            self.finish()
+        self.finish()

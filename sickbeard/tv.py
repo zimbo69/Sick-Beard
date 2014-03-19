@@ -105,11 +105,6 @@ class TVShow(object):
         else:
             raise exceptions.ShowDirNotFoundException("Show folder doesn't exist, you shouldn't be using it")
 
-        if self._isDirGood:
-            return self._location
-        else:
-            raise exceptions.NoNFOException("Show folder doesn't exist, you shouldn't be using it")
-
     def _setLocation(self, newLocation):
         logger.log(u"Setter sets location to " + newLocation, logger.DEBUG)
         # Don't validate dir if user wants to add shows without creating a dir
