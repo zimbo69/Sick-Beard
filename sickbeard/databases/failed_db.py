@@ -64,6 +64,6 @@ class HistoryStatus(History):
 
     def execute(self):
         self.addColumn('history', 'old_status', 'NUMERIC', Quality.NONE)
-        self.addColumn('history', 'showtvdbid', 'NUMERIC', '-1')
+        self.addColumn('history', 'showid', 'NUMERIC', '-1')
         self.addColumn('history', 'season', 'NUMERIC', '-1')
         self.addColumn('history', 'episode', 'NUMERIC', '-1')
