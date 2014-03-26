@@ -85,9 +85,7 @@ def find_scene_numbering(tvdb_id, season, episode):
     rows = myDB.select("SELECT scene_season, scene_episode FROM scene_numbering WHERE tvdb_id = ? and season = ? and episode = ?", [tvdb_id, season, episode])
     if rows:
         return (int(rows[0]["scene_season"]), int(rows[0]["scene_episode"]))
-    else:
-        None
-    
+
 def get_tvdb_numbering(tvdb_id, sceneSeason, sceneEpisode, fallback_to_xem=True):
     """
     Returns a tuple, (season, episode) with the tvdb numbering for (sceneSeason, sceneEpisode)

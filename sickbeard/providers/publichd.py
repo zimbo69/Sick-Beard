@@ -21,7 +21,7 @@ from __future__ import with_statement
 import sys
 import os
 import traceback
-import urllib, urllib2, urlparse
+import urllib, urlparse
 import re
 import datetime
 
@@ -40,7 +40,7 @@ from sickbeard import encodingKludge as ek
 from sickbeard import clients
 
 from lib import requests
-from bs4 import BeautifulSoup
+from lib.bs4 import BeautifulSoup
 from lib.unidecode import unidecode
 
 class PublicHDProvider(generic.TorrentProvider):
@@ -237,7 +237,7 @@ class PublicHDProvider(generic.TorrentProvider):
                 
             helpers.chmodAsParent(magnetFileName)
         
-        except EnvironmentError:
+        except EnvironmentError, e:
             logger.log("Unable to save the file: " + ex(e), logger.ERROR)
             return False
         
