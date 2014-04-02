@@ -297,18 +297,16 @@ class ThePirateBayProvider(generic.TorrentProvider):
             
         result = None
 
-        try:
-            # Remove double-slashes from url
-            parsed = list(urlparse.urlparse(url))
-            parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
-            url = urlparse.urlunparse(parsed)
+        # Remove double-slashes from url
+        parsed = list(urlparse.urlparse(url))
+        parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
+        url = urlparse.urlunparse(parsed)
+
+        if requests.status_code != 200:
+            logger.log(self.name + u" page requested with url " + url +" returned status code is " + str(requests.status_code) + ': ' + clients.http_error_code[requests.status_code], logger.WARNING)
             return None
 
-        if r.status_code != 200:
-            logger.log(self.name + u" page requested with url " + url +" returned status code is " + str(r.status_code) + ': ' + clients.http_error_code[r.status_code], logger.WARNING)
-            return None
-
-        return r.content
+        return requests.content
 
     def downloadResult(self, result):
         """

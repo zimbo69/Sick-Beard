@@ -506,7 +506,7 @@ class AddRequireAndIgnoreWords(AddIndicesToTvEpisodes):
     """ Adding column rls_require_words and rls_ignore_words to tv_shows """
 
     def test(self):
-        return self.checkDBVersion() >= 2q
+        return self.checkDBVersion() >= 22
 
     def execute(self):
         backupDatabase(22)
