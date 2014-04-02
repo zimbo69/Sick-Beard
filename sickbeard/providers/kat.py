@@ -21,7 +21,7 @@ from __future__ import with_statement
 import sys
 import os
 import traceback
-import urllib, urllib2
+import urllib
 import re
 import datetime
 import urlparse
@@ -202,9 +202,9 @@ class KATProvider(generic.TorrentProvider):
                 sickbeard.config.naming_ep_type[2] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} +'|'+\
                 sickbeard.config.naming_ep_type[0] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} +'|'+\
                 sickbeard.config.naming_ep_type[3] % {'seasonnumber': ep_obj.season, 'episodenumber': ep_obj.episode} + ' %s category:tv' %add_string \
-                
+
                 search_string['Episode'].append(re.sub('\s+', ' ', ep_string))
-    
+
         return [search_string]
 
     def _doSearch(self, search_params, show=None):
@@ -240,7 +240,7 @@ class KATProvider(generic.TorrentProvider):
                     for tr in torrent_rows[1:]:
 
                         try:
-                            link = self.url + (tr.find('div', {'class': 'torrentname'}).find_all('a')[1])['href']
+                            link = urlparse.urljoin(self.url, (tr.find('div', {'class': 'torrentname'}).find_all('a')[1])['href'])
                             id = tr.get('id')[-7:]
                             title = (tr.find('div', {'class': 'torrentname'}).find_all('a')[1]).text
                             url = tr.find('a', 'imagnet')['href']
@@ -337,7 +337,7 @@ class KATProvider(generic.TorrentProvider):
                 
             helpers.chmodAsParent(magnetFileName)
         
-        except EnvironmentError:
+        except EnvironmentError, e:
             logger.log("Unable to save the file: " + ex(e), logger.ERROR)
             return False
         
@@ -357,10 +357,10 @@ class KATProvider(generic.TorrentProvider):
                                               )
         if not sqlResults:
             return []
-        
+
         for sqlShow in sqlResults:
             curShow = helpers.findCertainShow(sickbeard.showList, int(sqlShow["showid"]))
-            curEp = curShow.getEpisode(int(sqlShow["season"]),int(sqlShow["episode"]))
+            curEp = curShow.getEpisode(int(sqlShow["season"]), int(sqlShow["episode"]))
             searchString = self._get_episode_search_strings(curEp, add_string='PROPER|REPACK')
 
             for item in self._doSearch(searchString[0]):

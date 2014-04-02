@@ -234,7 +234,7 @@ Returns a byte-string retrieved from the url provider.
 
 def _remove_file_failed(file):
     try:
-        os.remove(file)
+        ek.ek(os.remove,file)
     except:
         pass
 
@@ -713,8 +713,8 @@ def parse_json(data):
 
     try:
         parsedJSON = json.loads(data)
-    except ValueError:
-        logger.log(u"Error trying to decode json data:" + data, logger.ERROR)
+    except ValueError, e:
+        logger.log(u"Error trying to decode json data. Error: " + ex(e), logger.DEBUG)
         return None
 
     return parsedJSON
@@ -736,7 +736,7 @@ def parse_xml(data, del_xmlns=False):
     try:
         parsedXML = etree.fromstring(data)
     except Exception, e:
-        logger.log(u"Error trying to parse xml data: " + data + " to Elementtree, Error: " + ex(e), logger.DEBUG)
+        logger.log(u"Error trying to parse xml data. Error: " + ex(e), logger.DEBUG)
         parsedXML = None
 
     return parsedXML
@@ -869,34 +869,32 @@ def check_url(url):
         return conn.getresponse().status in good_codes
     except StandardError:
         return None
-        
-
-"""
-Encryption
-==========
-By Pedro Jose Pereira Vieito <pvieito@gmail.com> (@pvieito)
-
-* If encryption_version==0 then return data without encryption
-* The keys should be unique for each device
-
-To add a new encryption_version:
-  1) Code your new encryption_version        
-  2) Update the last encryption_version available in webserve.py
-  3) Remember to maintain old encryption versions and key generators for retrocompatibility
-"""
-
-# Key Generators
-unique_key1 = hex(uuid.getnode()**2) # Used in encryption v1
 
 # Encryption Functions
 def encrypt(data, encryption_version=0, decrypt=False):
+    """
+    Password encryption
+
+    By Pedro Jose Pereira Vieito <pvieito@gmail.com> (@pvieito)
     
-    # Version 1: Simple XOR encryption (this is not very secure, but works)
+    * If encryption_version==0 then return data without encryption
+    * The keys should be unique for each device
+    
+    To add a new encryption_version:
+      1) Code your new encryption_version        
+      2) Update the last encryption_version available in webserve.py
+      3) Remember to maintain old encryption versions and key generators for retrocompatibility
+    """
+    
+    # Key Generators
+    unique_key0 = hex(uuid.getnode()**2) # Used in encryption v1 & v2
+        	
+    # Version 1: Simple XOR encryption (Not very secure, but works)
     if encryption_version == 1:
     	if decrypt:
-        	return ''.join(chr(ord(x) ^ ord(y)) for (x,y) in izip(base64.decodestring(data), cycle(unique_key1)))
+        	return ''.join(chr(ord(x) ^ ord(y)) for (x,y) in izip(base64.decodestring(data), cycle(unique_key0))).decode('utf-8')
         else:
-        	return base64.encodestring(''.join(chr(ord(x) ^ ord(y)) for (x,y) in izip(data, cycle(unique_key1)))).strip()
+            return base64.encodestring(''.join(chr(ord(x) ^ ord(y)) for (x,y) in izip(data.encode('utf-8'), cycle(unique_key0)))).strip()        	
     # Version 0: Plain text
     else:
         return data
@@ -904,55 +902,21 @@ def encrypt(data, encryption_version=0, decrypt=False):
 def decrypt(data, encryption_version=0):
 	return encrypt(data, encryption_version, decrypt=True)
 
-def full_sanitizeSceneName(name):
-    return re.sub('[. -]', ' ', sanitizeSceneName(name)).lower().lstrip()
-
-def _check_against_names(name, show):
-    nameInQuestion = full_sanitizeSceneName(name)
-
-    showNames = [show.name]
-    showNames.extend(sickbeard.scene_exceptions.get_scene_exceptions(show.tvdbid))
-
-    for showName in showNames:
-        nameFromList = full_sanitizeSceneName(showName)
-        #logger.log(u"Comparing names: '"+nameFromList+"' vs '"+nameInQuestion+"'", logger.DEBUG)
-        if nameFromList == nameInQuestion:
+def is_hidden_folder(folder):
+    """
+    Returns True if folder is hidden.
+    On Linux based systems hidden folders start with . (dot)
+    folder: Full path of folder to check
+    """
+    if ek.ek(os.path.isdir, folder):
+        if ek.ek(os.path.basename, folder).startswith('.'):
             return True
 
     return False
 
-def get_show_by_name(name, showList, useTvdb=False):
-    logger.log(u"Trying to get the tvdbid for "+name, logger.DEBUG)
+def real_path(path):
+    """
+    Returns: the canonicalized absolute pathname. The resulting path will have no symbolic link, '/./' or '/../' components.
+    """
+    return ek.ek(os.path.normpath, ek.ek(os.path.normcase, ek.ek(os.path.realpath, path)))
 
-    if showList:
-        for show in showList:
-            if _check_against_names(name, show):
-                logger.log(u"Matched "+name+" in the showlist to the show "+show.name, logger.DEBUG)
-                return show
-
-    if useTvdb:
-        try:
-            t = tvdb_api.Tvdb(custom_ui=classes.ShowListUI, **sickbeard.TVDB_API_PARMS)
-            showObj = t[name]
-        except (tvdb_exceptions.tvdb_exception):
-            # if none found, search on all languages
-            try:
-                # There's gotta be a better way of doing this but we don't wanna
-                # change the language value elsewhere
-                ltvdb_api_parms = sickbeard.TVDB_API_PARMS.copy()
-
-                ltvdb_api_parms['search_all_languages'] = True
-                t = tvdb_api.Tvdb(custom_ui=classes.ShowListUI, **ltvdb_api_parms)
-                showObj = t[name]
-            except (tvdb_exceptions.tvdb_exception, IOError):
-                pass
-
-            return None
-        except (IOError):
-            return None
-        else:
-            show = findCertainShow(sickbeard.showList, int(showObj["id"]))
-            if show:
-                return show
-
-    return None
