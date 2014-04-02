@@ -119,7 +119,7 @@ class TVCache():
                 return []
             
             if self._checkAuth(parsedXML):
-                
+
                 if parsedXML.tag == 'rss':
                     items = parsedXML.findall('.//item')
                     
@@ -173,6 +173,8 @@ class TVCache():
 
         if sqlResults:
             lastTime = int(sqlResults[0]["time"])
+            if lastTime > int(time.mktime(datetime.datetime.today().timetuple())):
+                lastTime = 0
         else:
             lastTime = 0
 
@@ -272,7 +274,7 @@ class TVCache():
                     logger.log(u"Trying to look the show up in the show database", logger.DEBUG)
                     showResult = helpers.searchDBForShow(parse_result.series_name)
                     if showResult:
-                        logger.log(parse_result.series_name + " was found to be show " + showResult[1] + " ("+str(showResult[0])+") in our DB.", logger.DEBUG)
+                        logger.log(u"" + parse_result.series_name + " was found to be show " + showResult[1] + " (" + str(showResult[0]) + ") in our DB.", logger.DEBUG)
                         tvdb_id = showResult[0]
 
                 # if the DB lookup fails then do a comprehensive regex search
@@ -341,9 +343,8 @@ class TVCache():
         if not isinstance(name, unicode):
             name = unicode(name, 'utf-8')
 
-        myDB.action("INSERT INTO [" + self.providerID + "] (name, season, episodes, tvrid, tvdbid, url, time, quality) VALUES (?,?,?,?,?,?,?,?)",
-                    [name, season, episodeText, tvrage_id, tvdb_id, url, curTimestamp, quality])
-
+        return ["INSERT INTO [" + self.providerID + "] (name, season, episodes, tvrid, tvdbid, url, time, quality) VALUES (?,?,?,?,?,?,?,?)",
+                    [name, season, episodeText, tvrage_id, tvdb_id, url, curTimestamp, quality]]
 
     def searchCache(self, episode, manualSearch=False):
         neededEps = self.findNeededEpisodes(episode, manualSearch)

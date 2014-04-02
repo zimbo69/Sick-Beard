@@ -167,26 +167,32 @@ def _getEpisode(show, season, episode):
 
     return epObj
 
-def ManageMenu():
-        
-    manageMenu = [
-    { 'title': 'Backlog Overview',          'path': 'manage/backlogOverview/' },
-    { 'title': 'Manage Searches',           'path': 'manage/manageSearches/'  },
-    { 'title': 'Episode Status Management', 'path': 'manage/episodeStatuses/' },]
-
+def haveManageTorrents():
     if sickbeard.USE_TORRENTS and sickbeard.TORRENT_METHOD != 'blackhole' \
     and (sickbeard.ENABLE_HTTPS and sickbeard.TORRENT_HOST[:5] == 'https' \
     or not sickbeard.ENABLE_HTTPS and sickbeard.TORRENT_HOST[:5] == 'http:'):
-        manageMenu.append({ 'title': 'Manage Torrents', 'path': 'manage/manageTorrents/'})
+        return True
+    else:
+        return False
 
-    if sickbeard.USE_SUBTITLES:
-        manageMenu.append({ 'title': 'Missed Subtitle Management', 'path': 'manage/subtitleMissed/' })
-            
-    if sickbeard.USE_FAILED_DOWNLOADS:
-        manageMenu.append({ 'title': 'Failed Downloads', 'path': 'manage/failedDownloads/' })
+def useSubtitles():
+    return sickbeard.USE_SUBTITLES
+
+def useFailedDownload():
+    return sickbeard.USE_FAILED_DOWNLOADS
+
+def ManageMenu():
+        
+    manageMenu = [
+    { 'title': 'Backlog Overview',           'path': 'manage/backlogOverview/' },
+    { 'title': 'Manage Searches',            'path': 'manage/manageSearches/' },
+    { 'title': 'Manage Torrents',            'path': 'manage/manageTorrents/', 'requires': haveManageTorrents },
+    { 'title': 'Failed Downloads',           'path': 'manage/failedDownloads/', 'requires': useFailedDownload },
+    { 'title': 'Episode Status Management',  'path': 'manage/episodeStatuses/' },
+    { 'title': 'Missed Subtitle Management', 'path': 'manage/subtitleMissed/', 'requires': useSubtitles }
+    ]
 
     return manageMenu
-
 
 class ManageSearches:
 
@@ -949,7 +955,7 @@ class ConfigGeneral:
     def saveGeneral(self, log_dir=None, web_port=None, web_log=None, encryption_version=None, web_ipv6=None,
                     update_shows_on_start=None, launch_browser=None, web_username=None, use_api=None, api_key=None,
                     web_password=None, version_notify=None, enable_https=None, https_cert=None, https_key=None, sort_article=None,
-                    anon_redirect=None, git_path=None, calendar_unprotected=None, date_preset=None, time_preset=None):
+                    anon_redirect=None, git_path=None, calendar_protected=None, date_preset=None, time_preset=None):
 
         results = []
 
@@ -963,13 +969,16 @@ class ConfigGeneral:
         sickbeard.SORT_ARTICLE = config.checkbox_to_value(sort_article)
         sickbeard.ANON_REDIRECT = anon_redirect
         sickbeard.GIT_PATH = git_path
-        sickbeard.CALENDAR_UNPROTECTED = config.checkbox_to_value(calendar_unprotected)
+        
+        # Update value_on to the last encryption_version available:
+        sickbeard.ENCRYPTION_VERSION = config.checkbox_to_value(encryption_version, value_on=1, value_off=0)
+        sickbeard.CALENDAR_PROTECTED = config.checkbox_to_value(calendar_protected)
+        
         # sickbeard.LOG_DIR is set in config.change_LOG_DIR()
-
         sickbeard.WEB_PORT = config.to_int(web_port)
         sickbeard.WEB_IPV6 = config.checkbox_to_value(web_ipv6)
         # sickbeard.WEB_LOG is set in config.change_LOG_DIR()
-        sickbeard.ENCRYPTION_VERSION = config.checkbox_to_value(encryption_version)
+                
         sickbeard.WEB_USERNAME = web_username
         sickbeard.WEB_PASSWORD = web_password
 
@@ -986,11 +995,6 @@ class ConfigGeneral:
 
         sickbeard.USE_API = config.checkbox_to_value(use_api)
         sickbeard.API_KEY = api_key
-
-        if enable_https == "on":
-            enable_https = 1
-        else:
-            enable_https = 0
 
         sickbeard.ENABLE_HTTPS = config.checkbox_to_value(enable_https)
 
@@ -1024,7 +1028,7 @@ class ConfigSearch:
 
     @cherrypy.expose
     def saveSearch(self, use_nzbs=None, use_torrents=None, nzb_dir=None, sab_username=None, sab_password=None,
-                    sab_apikey=None, sab_category=None, sab_host=None, nzbget_username=None, nzbget_password=None, nzbget_category=None, nzbget_host=None,
+                    sab_apikey=None, sab_category=None, sab_host=None, nzbget_username=None, nzbget_password=None, nzbget_category=None, nzbget_host=None, nzbget_use_https=None,
                     nzb_method=None, torrent_method=None, usenet_retention=None, search_frequency=None, download_propers=None, allow_high_priority=None,
                     torrent_dir=None, torrent_username=None, torrent_password=None, torrent_host=None, torrent_label=None, torrent_path=None,
                     torrent_ratio=None, torrent_paused=None, torrent_high_bandwidth=None, ignore_words=None):
@@ -1046,7 +1050,7 @@ class ConfigSearch:
         sickbeard.TORRENT_METHOD = torrent_method
         sickbeard.USENET_RETENTION = sickbeard.USENET_RETENTION = config.to_int(usenet_retention, default=500)
 
-        sickbeard.IGNORE_WORDS = ignore_words if not ignore_words else ""
+        sickbeard.IGNORE_WORDS = ignore_words if ignore_words else "german,french,core2hd,dutch,swedish,reenc,MrLss"
 
         sickbeard.DOWNLOAD_PROPERS = config.checkbox_to_value(download_propers)
         if sickbeard.DOWNLOAD_PROPERS:
@@ -1066,6 +1070,7 @@ class ConfigSearch:
         sickbeard.NZBGET_PASSWORD = nzbget_password
         sickbeard.NZBGET_CATEGORY = nzbget_category
         sickbeard.NZBGET_HOST = config.clean_host(nzbget_host)
+        sickbeard.NZBGET_USE_HTTPS = config.checkbox_to_value(nzbget_use_https)
 
         sickbeard.TORRENT_USERNAME = torrent_username
         sickbeard.TORRENT_PASSWORD = torrent_password
@@ -1099,7 +1104,7 @@ class ConfigPostProcessing:
 
     @cherrypy.expose
     def savePostProcessing(self, naming_pattern=None, naming_multi_ep=None,
-                    xbmc_data=None, xbmc_12plus_data=None, mediabrowser_data=None, sony_ps3_data=None, wdtv_data=None, tivo_data=None,
+                    xbmc_data=None, xbmc_12plus_data=None, mediabrowser_data=None, sony_ps3_data=None, wdtv_data=None, tivo_data=None, mede8er_data=None,
                     keep_processed_dir=None, process_method=None, process_automatically=None, rename_episodes=None, unpack=None,
                     move_associated_files=None, tv_download_dir=None, naming_custom_abd=None, naming_abd_pattern=None, naming_strip_year=None, use_failed_downloads=None,
                     delete_failed=None, extra_scripts=None):
@@ -1142,6 +1147,7 @@ class ConfigPostProcessing:
         sickbeard.METADATA_PS3 = sony_ps3_data
         sickbeard.METADATA_WDTV = wdtv_data
         sickbeard.METADATA_TIVO = tivo_data
+        sickbeard.METADATA_MEDE8ER = mede8er_data
 
         sickbeard.metadata_provider_dict['XBMC'].set_config(sickbeard.METADATA_XBMC)
         sickbeard.metadata_provider_dict['XBMC 12+'].set_config(sickbeard.METADATA_XBMC_12PLUS)
@@ -1149,6 +1155,7 @@ class ConfigPostProcessing:
         sickbeard.metadata_provider_dict['Sony PS3'].set_config(sickbeard.METADATA_PS3)
         sickbeard.metadata_provider_dict['WDTV'].set_config(sickbeard.METADATA_WDTV)
         sickbeard.metadata_provider_dict['TIVO'].set_config(sickbeard.METADATA_TIVO)
+        sickbeard.metadata_provider_dict['Mede8er'].set_config(sickbeard.METADATA_MEDE8ER)
 
         if self.isNamingValid(naming_pattern, naming_multi_ep) != "invalid":
             sickbeard.NAMING_PATTERN = naming_pattern
@@ -1364,6 +1371,8 @@ class ConfigProviders:
                       torrentday_username=None, torrentday_password=None, torrentday_freeleech=None,
                       hdbits_username=None, hdbits_passkey=None,
 					  nextgen_username=None, nextgen_password=None,
+                      speedcd_username=None, speedcd_password=None, speedcd_freeleech=None,
+                      binsearch_max=None, binsearch_alt=None,
                       newzbin_username=None, newzbin_password=None,
                       provider_order=None):
 
@@ -1426,7 +1435,6 @@ class ConfigProviders:
                     continue
 
                 curName, curURL = curTorrentRssProviderStr.split('|')
-                curURL = config.clean_url(curURL)
                     
                 newProvider = rsstorrent.TorrentRssProvider(curName, curURL)
 
@@ -1442,7 +1450,6 @@ class ConfigProviders:
                 finishedNames.append(curID)
 
         # delete anything that is missing
-        #logger.log(u"sickbeard.anyRssProviderList =  " + repr(sickbeard.anyRssProviderList))
         for curProvider in sickbeard.torrentRssProviderList:
             if curProvider.getID() not in finishedNames:
                 sickbeard.torrentRssProviderList.remove(curProvider)
@@ -1493,7 +1500,11 @@ class ConfigProviders:
             elif curProvider == 'hdbits':
                 sickbeard.HDBITS = curEnabled
             elif curProvider == 'nextgen':
-                sickbeard.NEXTGEN = curEnabled				
+                sickbeard.NEXTGEN = curEnabled
+            elif curProvider == 'speedcd':
+                sickbeard.SPEEDCD = curEnabled
+            elif curProvider == 'binsearch':
+            	sickbeard.BINSEARCH = curEnabled
             elif curProvider in newznabProviderDict:
                 newznabProviderDict[curProvider].enabled = bool(curEnabled)
             elif curProvider in torrentRssProviderDict:
@@ -1530,7 +1541,6 @@ class ConfigProviders:
 
         sickbeard.TORRENTDAY_USERNAME = torrentday_username.strip()
         sickbeard.TORRENTDAY_PASSWORD = torrentday_password.strip()
-
         sickbeard.TORRENTDAY_FREELEECH = config.checkbox_to_value(torrentday_freeleech)
 
         sickbeard.SCC_USERNAME = scc_username.strip()
@@ -1547,7 +1557,14 @@ class ConfigProviders:
 
         sickbeard.NEXTGEN_USERNAME = nextgen_username.strip()
         sickbeard.NEXTGEN_PASSWORD = nextgen_password.strip()
-		
+
+        sickbeard.SPEEDCD_USERNAME = speedcd_username.strip()
+        sickbeard.SPEEDCD_PASSWORD = speedcd_password.strip()
+        sickbeard.SPEEDCD_FREELEECH = config.checkbox_to_value(speedcd_freeleech)
+        
+        sickbeard.BINSEARCH_MAX = binsearch_max
+        sickbeard.BINSEARCH_ALT = binsearch_alt.strip()
+
         sickbeard.NEWZNAB_DATA = '!!!'.join([x.configStr() for x in sickbeard.newznabProviderList])
         sickbeard.PROVIDER_ORDER = provider_list
 
@@ -1844,7 +1861,7 @@ class HomePostProcess:
         return _munge(t)
 
     @cherrypy.expose
-    def processEpisode(self, dir=None, nzbName=None, jobName=None, quiet=None, process_method=None, force=None, is_priority=None, failed="0", type="auto"):
+    def processEpisode(self, dir=None, nzbName=None, jobName=None, quiet=None, process_method=None, force=None, is_priority=None, failed="0", type="automatic"):
 
         if failed == "0":
             failed = False
@@ -2756,7 +2773,7 @@ class Home:
         return result['description'] if result else 'Episode not found.'
 
     @cherrypy.expose
-    def editShow(self, show=None, location=None, anyQualities=[], bestQualities=[], exceptions_list=[], flatten_folders=None, paused=None, directCall=False, air_by_date=None, dvdorder=None, tvdbLang=None, subtitles=None):
+    def editShow(self, show=None, location=None, anyQualities=[], bestQualities=[], exceptions_list=[], flatten_folders=None, paused=None, directCall=False, air_by_date=None, tvdbLang=None, subtitles=None, rls_ignore_words=None, rls_require_words=None):
 
         if show == None:
             errString = "Invalid show ID: " + str(show)
@@ -2842,6 +2859,9 @@ class Home:
             showObj.subtitles = subtitles
             showObj.lang = tvdb_lang
             showObj.dvdorder = dvdorder
+
+            showObj.rls_ignore_words = rls_ignore_words
+            showObj.rls_require_words = rls_require_words
 
             # if we change location clear the db of episodes, change it, write to db, and rescan
             if os.path.normpath(showObj._location) != os.path.normpath(location):
@@ -3316,26 +3336,6 @@ class Home:
 
         return json.dumps({'result': 'failure'})
             
-#        try:
-#            
-#                
-#            ui.notifications.message('Info', pp.log)
-#        except exceptions.FailedHistoryNotFoundException:
-#            ui.notifications.error('Not Found Error', 'Couldn\'t find release in history. (Has it been over 30 days?)\n'
-#                                   'Can\'t mark it as bad.')
-#            return json.dumps({'result': 'failure'})
-#        except exceptions.FailedHistoryMultiSnatchException:
-#            ui.notifications.error('Multi-Snatch Error', 'The same episode was snatched again before the first one was done.\n'
-#                                   'Please cancel any downloads of this episode and then set it back to wanted.\n Can\'t continue.')
-#            return json.dumps({'result': 'failure'})
-#        except exceptions.FailedProcessingFailed:
-#            ui.notifications.error('Processing Failed', pp.log)
-#            return json.dumps({'result': 'failure'})
-#        except Exception as e:
-#            ui.notifications.error('Unknown Error', 'Unknown exception: ' + str(e))
-#            return json.dumps({'result': 'failure'})
-#
-#        return json.dumps({'result': 'success'})
 
 class UI:
 
@@ -3507,8 +3507,6 @@ class WebInterface:
         sql_results.sort(sorts[sickbeard.COMING_EPS_SORT])
 
         t = PageTemplate(file="comingEpisodes.tmpl")
-#        paused_item = { 'title': '', 'path': 'toggleComingEpsDisplayPaused' }
-#        paused_item['title'] = 'Hide Paused' if sickbeard.COMING_EPS_DISPLAY_PAUSED else 'Show Paused'
         paused_item = { 'title': 'View Paused:', 'path': {'': ''} }
         paused_item['path'] = {'Hide': 'toggleComingEpsDisplayPaused'} if sickbeard.COMING_EPS_DISPLAY_PAUSED else {'Show': 'toggleComingEpsDisplayPaused'}
         t.submenu = [
@@ -3552,7 +3550,7 @@ class WebInterface:
 
         time_re = re.compile('([0-9]{1,2})\:([0-9]{2})(\ |)([AM|am|PM|pm]{2})')
 
-    # Create a iCal string
+        # Create a iCal string
         ical = 'BEGIN:VCALENDAR\r\n'
         ical += 'VERSION:2.0\r\n'
         ical += 'X-WR-CALNAME:Sick Beard\r\n'
@@ -3566,8 +3564,8 @@ class WebInterface:
         past_date = (datetime.date.today() + datetime.timedelta(weeks=-52)).toordinal()
         future_date = (datetime.date.today() + datetime.timedelta(weeks=52)).toordinal()
 
-        # Get all the shows that are not paused and are currently on air (from kjoconnor Fork)
-        calendar_shows = myDB.select("SELECT show_name, tvdb_id, network, airs, runtime FROM tv_shows WHERE status = 'Continuing' AND paused != '1'")
+        # Get all the shows that are not paused
+        calendar_shows = myDB.select("SELECT show_name, tvdb_id, network, airs, runtime FROM tv_shows WHERE paused != '1'")
         for show in calendar_shows:
             # Get all episodes of this show airing between today and next month
             episode_list = myDB.select("SELECT tvdbid, name, season, episode, description, airdate FROM tv_episodes WHERE airdate >= ? AND airdate < ? AND showid = ?", (past_date, future_date, int(show["tvdb_id"])))
