@@ -318,7 +318,7 @@ def makeDir(path):
 
 def searchDBForShow(regShowName):
 
-    showNames = [re.sub('[. -]', ' ', regShowName),regShowName]
+    showNames = [re.sub('[. -]', ' ', regShowName)]
 
     myDB = db.DBConnection()
 
@@ -326,11 +326,7 @@ def searchDBForShow(regShowName):
 
     for showName in showNames:
 
-        show = get_show_by_name(showName,sickbeard.showList)
-        if show:
-            sqlResults = myDB.select("SELECT * FROM tv_shows WHERE show_name LIKE ? OR tvr_name LIKE ?", [show.name, show.name])
-        else:
-            sqlResults = myDB.select("SELECT * FROM tv_shows WHERE show_name LIKE ? OR tvr_name LIKE ?", [showName, showName])
+        sqlResults = myDB.select("SELECT * FROM tv_shows WHERE show_name LIKE ? OR tvr_name LIKE ?", [showName, showName])
 
         if len(sqlResults) == 1:
             return (int(sqlResults[0]["tvdb_id"]), sqlResults[0]["show_name"])
