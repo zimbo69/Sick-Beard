@@ -287,26 +287,23 @@ class ThePirateBayProvider(generic.TorrentProvider):
 
     def getURL(self, url, headers=None):
 
-        if not headers:
-            headers = {}
+        try:
+            # Remove double-slashes from url
+            parsed = list(urlparse.urlparse(url))
+            parsed[2] = re.sub("/{2,}", "/", parsed[2])  # replace two or more / with one
+            url = urlparse.urlunparse(parsed)
 
-        # Glype Proxies does not support Direct Linking.
-        # We have to fake a search on the proxy site to get data
-        if self.proxy.isEnabled():
-            headers.update({'referer': self.proxy.getProxyURL()})
-            
-        result = None
-
-        # Remove double-slashes from url
-        parsed = list(urlparse.urlparse(url))
-        parsed[2] = re.sub("/{2,}", "/", parsed[2]) # replace two or more / with one
-        url = urlparse.urlunparse(parsed)
-
-        if requests.status_code != 200:
-            logger.log(self.name + u" page requested with url " + url +" returned status code is " + str(requests.status_code) + ': ' + clients.http_error_code[requests.status_code], logger.WARNING)
+            r = requests.get(url)
+        except (requests.exceptions.ConnectionError, requests.exceptions.HTTPError), e:
+            logger.log(u"Error loading " + self.name + " URL: " + str(sys.exc_info()) + " - " + ex(e), logger.ERROR)
             return None
 
-        return requests.content
+        if r.status_code != 200:
+            logger.log(self.name + u" page requested with url " + url + " returned status code is " + str(
+                r.status_code) + ': ' + clients.http_error_code[r.status_code], logger.WARNING)
+            return None
+
+        return r.content
 
     def downloadResult(self, result):
         """
