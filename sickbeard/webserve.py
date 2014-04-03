@@ -62,8 +62,7 @@ from sickbeard.providers.generic import TorrentProvider
 from lib.tvdb_api import tvdb_api
 from lib.dateutil import tz
 from lib.unrar2 import RarFile, RarInfo
-
-import subliminal
+from lib import subliminal
 
 try:
     import json
@@ -926,6 +925,8 @@ class ConfigGeneral:
 
         sickbeard.FLATTEN_FOLDERS_DEFAULT = config.checkbox_to_value(defaultFlattenFolders)
         sickbeard.SUBTITLES_DEFAULT = config.checkbox_to_value(subtitles)
+
+        sickbeard.save_config()
 
     @cherrypy.expose
     def generateKey(self):
@@ -2773,7 +2774,7 @@ class Home:
         return result['description'] if result else 'Episode not found.'
 
     @cherrypy.expose
-    def editShow(self, show=None, location=None, anyQualities=[], bestQualities=[], exceptions_list=[], flatten_folders=None, paused=None, directCall=False, air_by_date=None, tvdbLang=None, subtitles=None, rls_ignore_words=None, rls_require_words=None):
+    def editShow(self, show=None, location=None, anyQualities=[], bestQualities=[], exceptions_list=[], flatten_folders=None, paused=None, dvdorder=None, directCall=False, air_by_date=None, tvdbLang=None, subtitles=None, rls_ignore_words=None, rls_require_words=None):
 
         if show == None:
             errString = "Invalid show ID: " + str(show)
